@@ -20,13 +20,28 @@ public class PersistenceEf: IPersistence
         await _context.SaveChangesAsync();
         return entity;
     }
-    
+    public async Task AddRange<T>(IEnumerable<T> entities) where T : EntityBase
+    {
+        var entityList = entities.ToList();
+        await _context.Set<T>().AddRangeAsync(entityList);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<T> Delete<T>(T entity) where T : EntityBase
     {
         var a = entity.Id;
         _context.Remove(entity);
         await _context.SaveChangesAsync();
         return entity;
+    }
+    public async Task ReplaceRange<T>(IEnumerable<T> existingEntities, IEnumerable<T> newEntities) where T : EntityBase
+    {
+        var existingList = existingEntities.ToList();
+        var newList = newEntities.ToList();
+
+        _context.RemoveRange(existingList);
+        await _context.Set<T>().AddRangeAsync(newList);
+        await _context.SaveChangesAsync();
     }
 
     public async Task<T?> First<T>(Expression<Func<T, bool>> predicate, params string[] include) where T : EntityBase
