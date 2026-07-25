@@ -60,7 +60,8 @@ public class DoctorService : IDoctorService
         ValidateRequest(request);
 
         var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
-        if (speciality == null) throw new EntityNotFoundException(nameof(Speciality));
+        if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
+
 
         var doctor = new Doctor(request.Name.Trim(), request.LicenseNumber, speciality);
         await _persistence.Add(doctor);
@@ -76,7 +77,7 @@ public class DoctorService : IDoctorService
         if (doctor == null || !doctor.IsActive) return null;
 
         var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
-        if (speciality == null) throw new EntityNotFoundException(nameof(Speciality));
+        if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
 
         doctor.Update(request.Name.Trim(), request.LicenseNumber, speciality);
         await _persistence.Update(doctor);
