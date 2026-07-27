@@ -28,6 +28,7 @@ public class AvailabilityService : IAvailabilityService
 
         var existing = (await _persistence.GetFiltered<Availability>(
             a => a.DoctorId == request.DoctorId &&
+                !a.Deleted &&
                  a.StartDateTime < nextMonth &&
                  a.EndDateTime > monthStart))?.ToList() ?? [];
 
@@ -52,10 +53,19 @@ public class AvailabilityService : IAvailabilityService
 
         var existing = (await _persistence.GetFiltered<Availability>(
             a => a.DoctorId == request.DoctorId &&
+                 !a.Deleted &&
                  a.StartDateTime < nextMonth &&
                  a.EndDateTime > monthStart))?.ToList() ?? [];
 
-        await _persistence.ReplaceRange(existing, slots);
+        if (existing.Any(a => a.Status == SlotStatus.Booked))
+            throw new ConflictException(
+                "No se puede modificar la disponibilidad: hay turnos reservados en el mes",
+                "AVAILABILITY_HAS_BOOKED_SLOTS");
+
+        foreach (var slot in existing)
+            slot.Delete();                               
+
+        await _persistence.AddRange(slots);
     }
 
     public async Task<IEnumerable<AvailabilityModel.Response>> GetByDoctor(Guid doctorId)
@@ -67,6 +77,7 @@ public class AvailabilityService : IAvailabilityService
 
         var availabilities = (await _persistence.GetFiltered<Availability>(
             a => a.DoctorId == doctorId &&
+                !a.Deleted &&
                  a.StartDateTime < nextMonth &&
                  a.EndDateTime > monthStart))?.ToList() ?? [];
 

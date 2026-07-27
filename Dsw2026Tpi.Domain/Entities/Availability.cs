@@ -10,7 +10,8 @@ public class Availability : EntityBase
     public Doctor? Doctor { get; private set; }
     public DateTime StartDateTime { get; private set; }
     public DateTime EndDateTime { get; private set; }
-    public bool IsAvailable { get; private set; }
+    public SlotStatus Status { get; private set; }
+    public bool Deleted { get; private set; }
 
     #region Constructor for EF
 #pragma warning disable CS8618
@@ -26,6 +27,38 @@ public class Availability : EntityBase
         DoctorId = doctor.Id;
         StartDateTime = startDateTime;
         EndDateTime = endDateTime;
-        IsAvailable = true;
+        Status = SlotStatus.Available;
+        Deleted = false;
+    }
+
+    public bool IsAvailable => Status == SlotStatus.Available && !Deleted;
+
+    public void Book()
+    {
+        if (!IsAvailable)
+            throw new InvalidOperationException($"El turno {Id} no está disponible para reservar.");
+
+        Status = SlotStatus.Booked;
+    }
+
+    public void Release()
+    {
+        if (Deleted)
+            throw new InvalidOperationException($"El turno {Id} fue dado de baja.");
+
+        Status = SlotStatus.Available;
+    }
+
+    public void Block()
+    {
+        if (Deleted)
+            throw new InvalidOperationException($"El turno {Id} fue dado de baja.");
+
+        Status = SlotStatus.Blocked;
+    }
+
+    public void Delete()
+    {
+        Deleted = true;
     }
 }

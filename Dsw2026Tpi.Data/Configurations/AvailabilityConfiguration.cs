@@ -10,14 +10,24 @@ public class AvailabilityConfiguration : IEntityTypeConfiguration<Availability>
     {
         builder.ToTable("Availabilities");
 
-        builder.Property(a => a.IsAvailable)
-            .HasDefaultValue(true);
+        builder.Ignore(a => a.IsAvailable);                   
+
+        builder.Property(a => a.Status)                        
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired()
+            .HasDefaultValue(SlotStatus.Available);
+
+        builder.Property(a => a.Deleted)                       
+            .HasDefaultValue(false);
 
         builder.HasOne(a => a.Doctor)
             .WithMany()
             .HasForeignKey(a => a.DoctorId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(a => new { a.DoctorId, a.StartDateTime });
+        builder.HasIndex(a => new { a.DoctorId, a.StartDateTime })  
+            .IsUnique()
+            .HasFilter("[Deleted] = 0");    // si nosotros no filtramos aca trae tambien disponibilidades borradas        
     }
 }
