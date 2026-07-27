@@ -100,7 +100,62 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<LoginPatientModel.Response> LoginPatient(LoginPatientModel.Request request)
     {
-        throw new NotImplementedException();
+        ValidatePatientRequest(request);
+
+        var email = NormalizeEmail(request.Email);
+        var patient = await FindPatient(email, request.Dni);
+        ApplicationUser user;
+
+        if (patient == null)
+        {
+            var existingUser = await _userManager.FindByEmailAsync(email);
+
+            if (existingUser != null)
+                throw new AuthenticationException();
+
+            user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var result = await _userManager.CreateAsync(user);
+
+            if (!result.Succeeded)
+                throw new ConflictException(
+                    nameof(ErrorCodes.REGISTER_USER_CONFLICT),
+                    ErrorCodes.REGISTER_USER_CONFLICT)
+                    .WithDetail(result.Errors.Select(
+                        e => (e.Code, e.Description)));
+
+            _ = await _userManager.AddToRoleAsync(user, Roles.Patient);
+
+            patient = new Patient(email, request.Dni, user.Id);
+            await _persistence.Add(patient);
+
+            _logger.LogInformation("Paciente registrado: {Email}", email);
+        }
+        else
+        {
+            user = await _userManager.FindByIdAsync(patient.IdentityUserId)
+                ?? throw new AuthenticationException();
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            if (!roles.Contains(Roles.Patient))
+                throw new AuthenticationException();
+        }
+
+        var token = _jwtService.GenerateToken(
+            user.UserName!,
+            Roles.Patient);
+
+        return new LoginPatientModel.Response(
+            token,
+            Roles.Patient
+        );
     }
 
     public async Task<RegisterModel.Response> Register(RegisterModel.Request request)
