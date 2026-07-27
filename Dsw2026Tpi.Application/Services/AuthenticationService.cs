@@ -7,6 +7,8 @@ using Dsw2026Tpi.CrossCutting.Resources;
 using Dsw2026Tpi.Data.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Dsw2026Tpi.Domain.Interfaces;
+using Dsw2026Tpi.Domain.Entities;
 
 namespace Dsw2026Tpi.Application.Services;
 
@@ -17,19 +19,62 @@ public class AuthenticationService : IAuthenticationService
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly JwtService _jwtService;
     private readonly ILogger<AuthenticationService> _logger;
+    private readonly IPersistence _persistence;
 
     public AuthenticationService(UserManager<ApplicationUser> userManager,
         ISignInService signInManager,
         RoleManager<IdentityRole> roleManager,
         JwtService jwtService,
-        ILogger<AuthenticationService> logger)
+        ILogger<AuthenticationService> logger,
+        IPersistence persistence)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _roleManager = roleManager;
         _jwtService = jwtService;
         _logger = logger;
+        _persistence = persistence;
     }
+
+    private static void ValidatePatientRequest(LoginPatientModel.Request request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new ValidationException().WithDetail("email", "required");
+
+        if (!request.Email.IsEmailValid())
+            throw new ValidationException().WithDetail("email", "invalid");
+
+        if (request.Dni == 0)
+            throw new ValidationException().WithDetail("dni", "required");
+
+        if (request.Dni < 1_000_000 || request.Dni > 99_999_999)
+            throw new ValidationException().WithDetail("dni", "must_have_7_or_8_digits");
+    }
+
+    private static string NormalizeEmail(string email)
+    {
+        return email.Trim().ToLowerInvariant();
+    }
+
+    private async Task<Patient?> FindPatient(string email, long dni)
+    {
+        var patientByEmail = await _persistence.First<Patient>(
+            p => p.Email == email);
+
+        var patientByDni = await _persistence.First<Patient>(
+            p => p.Dni == dni);
+
+        if (patientByEmail == null && patientByDni == null)
+            return null;
+
+        if (patientByEmail == null ||
+            patientByDni == null ||
+            patientByEmail.Id != patientByDni.Id)
+            throw new AuthenticationException();
+
+        return patientByEmail;
+    }
+
 
     public async Task<LoginAdminModel.Response> LoginAdmin(LoginAdminModel.Request request)
     {
@@ -53,7 +98,7 @@ public class AuthenticationService : IAuthenticationService
         );
     }
 
-    public async Task<LoginPatientModel.Response> LoginPatient(LoginPatientModel.Response request)
+    public async Task<LoginPatientModel.Response> LoginPatient(LoginPatientModel.Request request)
     {
         throw new NotImplementedException();
     }
