@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Dsw2026Tpi.Domain.Entities
 {
-    public enum SlotStatus
+    public enum TurnStatus
     {
         Available,
         Booked,

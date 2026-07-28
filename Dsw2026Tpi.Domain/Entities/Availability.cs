@@ -8,10 +8,16 @@ public class Availability : EntityBase
 {
     public Guid DoctorId { get; private set; }
     public Doctor? Doctor { get; private set; }
-    public DateTime StartDateTime { get; private set; }
-    public DateTime EndDateTime { get; private set; }
-    public SlotStatus Status { get; private set; }
+
+    public int Year { get; private set; }
+    public int Month { get; private set; }
+    public DayOfWeek DayOfWeek { get; private set; }
+    public TimeOnly StartTime { get; private set; }
+    public TimeOnly EndTime { get; private set; }
+
     public bool Deleted { get; private set; }
+
+    public ICollection<Turn> Turns { get; private set; } = new List<Turn>();
 
     #region Constructor for EF
 #pragma warning disable CS8618
@@ -21,40 +27,23 @@ public class Availability : EntityBase
 #pragma warning restore CS8618
     #endregion
 
-    public Availability(Doctor doctor, DateTime startDateTime, DateTime endDateTime, Guid? id = null) : base(id)
+    public Availability(
+        Doctor doctor,
+        int year,
+        int month,
+        DayOfWeek dayOfWeek,
+        TimeOnly startTime,
+        TimeOnly endTime,
+        Guid? id = null) : base(id)
     {
         Doctor = doctor;
         DoctorId = doctor.Id;
-        StartDateTime = startDateTime;
-        EndDateTime = endDateTime;
-        Status = SlotStatus.Available;
+        Year = year;
+        Month = month;
+        DayOfWeek = dayOfWeek;
+        StartTime = startTime;
+        EndTime = endTime;
         Deleted = false;
-    }
-
-    public bool IsAvailable => Status == SlotStatus.Available && !Deleted;
-
-    public void Book()
-    {
-        if (!IsAvailable)
-            throw new InvalidOperationException($"El turno {Id} no está disponible para reservar.");
-
-        Status = SlotStatus.Booked;
-    }
-
-    public void Release()
-    {
-        if (Deleted)
-            throw new InvalidOperationException($"El turno {Id} fue dado de baja.");
-
-        Status = SlotStatus.Available;
-    }
-
-    public void Block()
-    {
-        if (Deleted)
-            throw new InvalidOperationException($"El turno {Id} fue dado de baja.");
-
-        Status = SlotStatus.Blocked;
     }
 
     public void Delete()
