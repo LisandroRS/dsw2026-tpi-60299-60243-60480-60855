@@ -10,12 +10,14 @@ namespace Dsw2026Tpi.Application.Services;
 public class AvailabilityService : IAvailabilityService
 {
     private readonly IPersistence _persistence;
+    private readonly IHolidayService _holidayService;
 
     private record ParsedDay(DayOfWeek Day, TimeOnly StartTime, TimeOnly EndTime);
 
-    public AvailabilityService(IPersistence persistence)
+    public AvailabilityService(IPersistence persistence, IHolidayService holidayService)
     {
         _persistence = persistence;
+        _holidayService = holidayService;
     }
 
 
@@ -45,7 +47,7 @@ public class AvailabilityService : IAvailabilityService
             .SelectMany(rule => GenerateTurns(rule, now))
             .ToList();
 
-        await _persistence.AddRange(rules);
+        await _persistence.AddRange(rules, saveChanges: false);
         await _persistence.AddRange(turns);
     }
 
@@ -84,12 +86,12 @@ public class AvailabilityService : IAvailabilityService
             .Where(t => !ocupados.Contains((t.Date, t.StartTime)))
             .ToList();
 
-        await _persistence.AddRange(rules);
+        await _persistence.AddRange(rules, saveChanges: false);
         await _persistence.AddRange(turns);
     }
 
 
-    public async Task<IEnumerable<AvailabilityModel.Response>> GetByDoctor(Guid doctorId
+    public async Task<IEnumerable<AvailabilityModel.Response>> GetByDoctor(Guid doctorId)
     {
         _ = await GetActiveDoctor(doctorId);
 
@@ -99,6 +101,7 @@ public class AvailabilityService : IAvailabilityService
             .OrderBy(r => DayOrder(r.DayOfWeek))
             .ThenBy(r => r.StartTime)
             .Select(r => new AvailabilityModel.Response(
+                r.Id,
                 DayToText(r.DayOfWeek),
                 r.StartTime.ToString("HH:mm"),
                 r.EndTime.ToString("HH:mm")))
@@ -143,7 +146,7 @@ public class AvailabilityService : IAvailabilityService
         return doctor;
     }
 
-    private static List<Turn> GenerateTurns(Availability rule, DateTime now)
+    private List<Turn> GenerateTurns(Availability rule, DateTime now)
     {
         var turns = new List<Turn>();
 
@@ -160,6 +163,7 @@ public class AvailabilityService : IAvailabilityService
         for (var date = from; date <= lastDay; date = date.AddDays(1))
         {
             if (date.DayOfWeek != rule.DayOfWeek) continue;
+            if (_holidayService.IsHoliday(date)) continue;
 
             for (var i = 0; i < slotCount; i++)
             {
