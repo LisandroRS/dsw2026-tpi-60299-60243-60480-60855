@@ -11,6 +11,7 @@ public interface IPersistence
     Task<IEnumerable<T>?> GetFiltered<T>(Expression<Func<T, bool>> predicate, params string[] include) where T : EntityBase;
     Task<T> Add<T>(T entity) where T : EntityBase;
     Task AddRange<T>(IEnumerable<T> entities, bool saveChanges = true) where T : EntityBase;
+    Task SaveChanges();
     Task<T> Update<T>(T entity) where T : EntityBase;
     Task<T> Delete<T>(T entity) where T : EntityBase;
     Task ReplaceRange<T>(IEnumerable<T> existingEntities, IEnumerable<T> newEntities) where T : EntityBase;
