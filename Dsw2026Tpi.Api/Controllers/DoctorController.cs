@@ -45,12 +45,12 @@ public class DoctorController : AppController
     }
 
     [HttpDelete("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id)
     {
         var deleted = await _service.Delete(id);
-        return deleted ? NoContent() : NotFound();
+        return deleted ? Ok() : NotFound();
     }
 
     [HttpGet("{id:guid}/availabilities")]

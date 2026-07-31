@@ -30,9 +30,6 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
             .IsRequired()
             .HasDefaultValue(AppointmentStatus.Booked);
 
-        builder.Property(a => a.RowVersion)
-            .IsRowVersion();
-
         builder.HasOne(a => a.Turn)
             .WithMany()
             .HasForeignKey(a => a.TurnId)

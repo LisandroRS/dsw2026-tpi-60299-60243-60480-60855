@@ -62,9 +62,9 @@ public class AppointmentService : IAppointmentService
             throw new ValidationException()
                 .WithDetail("reason", "required");
 
-        if (request.Reason.Trim().Length < 5)
+        if (request.Reason.Trim().Length < 5 || request.Reason.Trim().Length > 300)
             throw new ValidationException()
-                .WithDetail("reason", "minimum_length_5");
+                .WithDetail("reason", "length_must_be_between_5_and_300_characters");
     }
     private static void ValidateDni(long dni, string field)
     {

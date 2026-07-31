@@ -18,8 +18,6 @@ namespace Dsw2026Tpi.Domain.Entities
         public DateTime? CancelledAt { get; private set; }
         public DateTime? AttendedAt { get; private set; }
 
-        public byte[] RowVersion { get; private set; } //para no tener concurrencia lo que hacemos es que el row version hace que sql se fije la version de la fila
-                                                       // si las versiones de row version no son iguales no se hace el update
         #region Constructor for EF
 #pragma warning disable CS8618
         private Appointment()

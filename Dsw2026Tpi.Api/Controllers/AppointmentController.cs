@@ -63,7 +63,7 @@ public class AppointmentController : AppController
 
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Policies.PatientPolicy)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -75,11 +75,9 @@ public class AppointmentController : AppController
         if (string.IsNullOrWhiteSpace(patientEmail))
             return Unauthorized();
 
-        await _service.Cancel(
-            id,
-            patientEmail);
+        await _service.Cancel(id, patientEmail);
 
-        return NoContent();
+        return Ok();
     }
 
     [HttpGet]
@@ -103,8 +101,8 @@ public class AppointmentController : AppController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Search(
-    [FromQuery] int pageSize,
-    [FromQuery] int pageIndex,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] int pageIndex = 0,
     [FromQuery(Name = "specialtyId")] Guid? specialityId = null,
     [FromQuery] Guid? doctorId = null,
     [FromQuery] long? dni = null,
