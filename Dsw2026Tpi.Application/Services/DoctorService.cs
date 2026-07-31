@@ -22,6 +22,10 @@ public class DoctorService : IDoctorService
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new ValidationException().WithDetail("name", "required");
 
+        if (string.IsNullOrWhiteSpace(request.LicenseNumber))
+            throw new ValidationException()
+                .WithDetail("licenseNumber", "required");
+
         if (request.Name.Trim().Length < 3 || request.Name.Trim().Length > 100)
             throw new ValidationException().WithDetail("name", "length_between_3_and_100");
 
@@ -59,11 +63,21 @@ public class DoctorService : IDoctorService
     {
         ValidateRequest(request);
 
+        var licenseNumber = request.LicenseNumber.Trim();
+
+        var existingDoctor = await _persistence.First<Doctor>(d => d.LicenseNumber == licenseNumber);
+
+        if (existingDoctor != null)
+            throw new ConflictException(
+                "Doctor already exists",
+                "DOCTOR_ALREADY_EXISTS")
+                .WithDetail("licenseNumber", "already_exists");
+
         var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
         if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
 
 
-        var doctor = new Doctor(request.Name.Trim(), request.LicenseNumber, speciality);
+        var doctor = new Doctor(request.Name.Trim(), licenseNumber, speciality);
         await _persistence.Add(doctor);
 
         return ToResponse(doctor);
@@ -76,10 +90,20 @@ public class DoctorService : IDoctorService
         var doctor = await _persistence.GetById<Doctor>(id);
         if (doctor == null || !doctor.IsActive) return null;
 
+        var licenseNumber = request.LicenseNumber.Trim();
+
+        var existingDoctor = await _persistence.First<Doctor>(d => d.LicenseNumber == licenseNumber && d.Id != id);
+
+        if (existingDoctor != null)
+            throw new ConflictException(
+                "Doctor already exists",
+                "DOCTOR_ALREADY_EXISTS")
+                .WithDetail("licenseNumber", "already_exists");
+
         var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
         if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
 
-        doctor.Update(request.Name.Trim(), request.LicenseNumber, speciality);
+        doctor.Update(request.Name.Trim(), licenseNumber, speciality);
         await _persistence.Update(doctor);
 
         return ToResponse(doctor);

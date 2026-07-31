@@ -11,12 +11,14 @@ public static class DependencyInjectionConfigurationExtensions
     public static IServiceCollection AddAppDependencies(this IServiceCollection services)
     {
         services.AddScoped<IPersistence, PersistenceEf>();
+        services.AddSingleton<IHolidayService, HolidayService>();
         services.AddScoped<IDoctorService, DoctorService>();
         services.AddScoped<ISpecialityService, SpecialityService>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<ISignInService, SignInService>();
         services.AddSingleton<JwtService>();
+        services.AddScoped<IAppointmentService, AppointmentService>();
         return services;
     }
 }

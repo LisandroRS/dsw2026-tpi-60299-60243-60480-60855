@@ -10,67 +10,128 @@ namespace Dsw2026Tpi.Application.Services;
 public class AvailabilityService : IAvailabilityService
 {
     private readonly IPersistence _persistence;
+    private readonly IHolidayService _holidayService;
 
     private record ParsedDay(DayOfWeek Day, TimeOnly StartTime, TimeOnly EndTime);
 
-    public AvailabilityService(IPersistence persistence)
+    public AvailabilityService(IPersistence persistence, IHolidayService holidayService)
     {
         _persistence = persistence;
+        _holidayService = holidayService;
     }
+
 
     public async Task Create(AvailabilityModel.Request request)
     {
         var parsedDays = ValidateAndParseRequest(request);
         var doctor = await GetActiveDoctor(request.DoctorId);
-        var slots = GenerateSlots(doctor, parsedDays);
-        var monthStart = GetMonthStart();
-        var nextMonth = monthStart.AddMonths(1);
 
-        var existing = (await _persistence.GetFiltered<Availability>(
-            a => a.DoctorId == request.DoctorId &&
-                 a.StartDateTime < nextMonth &&
-                 a.EndDateTime > monthStart))?.ToList() ?? [];
+        var existingRules = await GetMonthRules(doctor.Id);
 
-        var hasOverlap = slots.Any(slot =>
-            existing.Any(current =>
-                slot.StartDateTime < current.EndDateTime &&
-                current.StartDateTime < slot.EndDateTime));
+        var hasOverlap = parsedDays.Any(nueva =>
+            existingRules.Any(actual =>
+                actual.DayOfWeek == nueva.Day &&
+                nueva.StartTime < actual.EndTime &&
+                actual.StartTime < nueva.EndTime));
 
         if (hasOverlap)
             throw new ValidationException().WithDetail("days", "overlapping_existing_availability");
 
-        await _persistence.AddRange(slots);
+        var now = DateTime.Now;
+
+        var rules = parsedDays
+            .Select(p => new Availability(doctor, now.Year, now.Month, p.Day, p.StartTime, p.EndTime))
+            .ToList();
+
+        var turns = rules
+            .SelectMany(rule => GenerateTurns(rule, now))
+            .ToList();
+
+        await _persistence.AddRange(rules, saveChanges: false);
+        await _persistence.AddRange(turns);
     }
+
 
     public async Task Update(AvailabilityModel.Request request)
     {
         var parsedDays = ValidateAndParseRequest(request);
         var doctor = await GetActiveDoctor(request.DoctorId);
-        var slots = GenerateSlots(doctor, parsedDays);
-        var monthStart = GetMonthStart();
-        var nextMonth = monthStart.AddMonths(1);
 
-        var existing = (await _persistence.GetFiltered<Availability>(
-            a => a.DoctorId == request.DoctorId &&
-                 a.StartDateTime < nextMonth &&
-                 a.EndDateTime > monthStart))?.ToList() ?? [];
+        var existingRules = await GetMonthRules(doctor.Id);
+        var existingTurns = await GetMonthTurns(doctor.Id);
 
-        await _persistence.ReplaceRange(existing, slots);
+   
+        var bookedTurns = existingTurns
+            .Where(t => t.Status == TurnStatus.Booked)
+            .ToList();
+
+        foreach (var rule in existingRules)
+            rule.Delete();
+
+        foreach (var turn in existingTurns.Where(t => t.Status != TurnStatus.Booked))
+            turn.Delete();
+
+        var now = DateTime.Now;
+
+        var rules = parsedDays
+            .Select(p => new Availability(doctor, now.Year, now.Month, p.Day, p.StartTime, p.EndTime))
+            .ToList();
+
+        var ocupados = bookedTurns
+            .Select(t => (t.Date, t.StartTime))
+            .ToHashSet();
+
+        var turns = rules
+            .SelectMany(rule => GenerateTurns(rule, now))
+            .Where(t => !ocupados.Contains((t.Date, t.StartTime)))
+            .ToList();
+
+        await _persistence.AddRange(rules, saveChanges: false);
+        await _persistence.AddRange(turns);
     }
+
 
     public async Task<IEnumerable<AvailabilityModel.Response>> GetByDoctor(Guid doctorId)
     {
         _ = await GetActiveDoctor(doctorId);
 
-        var monthStart = GetMonthStart();
-        var nextMonth = monthStart.AddMonths(1);
+        var rules = await GetMonthRules(doctorId);
 
-        var availabilities = (await _persistence.GetFiltered<Availability>(
+        return rules
+            .OrderBy(r => DayOrder(r.DayOfWeek))
+            .ThenBy(r => r.StartTime)
+            .Select(r => new AvailabilityModel.Response(
+                r.Id,
+                DayToText(r.DayOfWeek),
+                r.StartTime.ToString("HH:mm"),
+                r.EndTime.ToString("HH:mm")))
+            .ToList();
+    }
+
+
+    private async Task<List<Availability>> GetMonthRules(Guid doctorId)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+
+        return (await _persistence.GetFiltered<Availability>(
             a => a.DoctorId == doctorId &&
-                 a.StartDateTime < nextMonth &&
-                 a.EndDateTime > monthStart))?.ToList() ?? [];
+                 !a.Deleted &&
+                 a.Year == today.Year &&
+                 a.Month == today.Month))?.ToList() ?? [];
+    }
 
-        return ToResponse(availabilities);
+    private async Task<List<Turn>> GetMonthTurns(Guid doctorId)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var monthEnd = new DateOnly(today.Year, today.Month,
+                                    DateTime.DaysInMonth(today.Year, today.Month));
+
+        return (await _persistence.GetFiltered<Turn>(
+            t => t.DoctorId == doctorId &&
+                 !t.Deleted &&
+                 t.Date >= monthStart &&
+                 t.Date <= monthEnd))?.ToList() ?? [];
     }
 
     private async Task<Doctor> GetActiveDoctor(Guid doctorId)
@@ -83,6 +144,38 @@ public class AvailabilityService : IAvailabilityService
             throw new EntityNotFoundException(nameof(Doctor));
 
         return doctor;
+    }
+
+    private List<Turn> GenerateTurns(Availability rule, DateTime now)
+    {
+        var turns = new List<Turn>();
+
+        var firstDay = new DateOnly(rule.Year, rule.Month, 1);
+        var lastDay = new DateOnly(rule.Year, rule.Month,
+                                   DateTime.DaysInMonth(rule.Year, rule.Month));
+
+        var today = DateOnly.FromDateTime(now);
+        var from = today > firstDay ? today : firstDay;
+
+        var slotCount = (int)(rule.EndTime.ToTimeSpan() - rule.StartTime.ToTimeSpan())
+                            .TotalMinutes / 30;
+
+        for (var date = from; date <= lastDay; date = date.AddDays(1))
+        {
+            if (date.DayOfWeek != rule.DayOfWeek) continue;
+            if (_holidayService.IsHoliday(date)) continue;
+
+            for (var i = 0; i < slotCount; i++)
+            {
+                var start = rule.StartTime.AddMinutes(i * 30);
+                var end = rule.StartTime.AddMinutes((i + 1) * 30);
+
+                if (date.ToDateTime(start) >= now)
+                    turns.Add(new Turn(rule, date, start, end));
+            }
+        }
+
+        return turns;
     }
 
     private static List<ParsedDay> ValidateAndParseRequest(AvailabilityModel.Request request)
@@ -103,10 +196,12 @@ public class AvailabilityService : IAvailabilityService
 
             var dayOfWeek = ParseDay(day.Day);
 
-            if (!TimeOnly.TryParseExact(day.StartTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var startTime))
+            if (!TimeOnly.TryParseExact(day.StartTime, "HH:mm", CultureInfo.InvariantCulture,
+                                        DateTimeStyles.None, out var startTime))
                 throw new ValidationException().WithDetail("startTime", "invalid_HH:mm");
 
-            if (!TimeOnly.TryParseExact(day.EndTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var endTime))
+            if (!TimeOnly.TryParseExact(day.EndTime, "HH:mm", CultureInfo.InvariantCulture,
+                                        DateTimeStyles.None, out var endTime))
                 throw new ValidationException().WithDetail("endTime", "invalid_HH:mm");
 
             if (startTime >= endTime)
@@ -147,84 +242,6 @@ public class AvailabilityService : IAvailabilityService
         }
     }
 
-    private static List<Availability> GenerateSlots(Doctor doctor, List<ParsedDay> parsedDays)
-    {
-        var now = DateTime.Now;
-        var lastDay = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month));
-        var slots = new List<Availability>();
-
-        for (var date = now.Date; date <= lastDay; date = date.AddDays(1))
-        {
-            foreach (var day in parsedDays.Where(d => d.Day == date.DayOfWeek))
-            {
-                var slotStart = date.Add(day.StartTime.ToTimeSpan());
-                var rangeEnd = date.Add(day.EndTime.ToTimeSpan());
-
-                while (slotStart < rangeEnd)
-                {
-                    var slotEnd = slotStart.AddMinutes(30);
-
-                    if (slotStart >= now)
-                        slots.Add(new Availability(doctor, slotStart, slotEnd));
-
-                    slotStart = slotEnd;
-                }
-            }
-        }
-
-        if (slots.Count == 0)
-            throw new ValidationException().WithDetail("days", "no_future_slots_for_current_month");
-
-        return slots;
-    }
-
-    private static IEnumerable<AvailabilityModel.Response> ToResponse(IEnumerable<Availability> availabilities)
-    {
-        var slotsByDay = availabilities
-            .Select(a => new ParsedDay(
-                a.StartDateTime.DayOfWeek,
-                TimeOnly.FromDateTime(a.StartDateTime),
-                TimeOnly.FromDateTime(a.EndDateTime)))
-            .Distinct()
-            .GroupBy(a => a.Day)
-            .OrderBy(g => DayOrder(g.Key));
-
-        var response = new List<AvailabilityModel.Response>();
-
-        foreach (var group in slotsByDay)
-        {
-            var ranges = group.OrderBy(r => r.StartTime).ToList();
-            var currentStart = ranges[0].StartTime;
-            var currentEnd = ranges[0].EndTime;
-
-            foreach (var range in ranges.Skip(1))
-            {
-                if (range.StartTime <= currentEnd)
-                {
-                    if (range.EndTime > currentEnd)
-                        currentEnd = range.EndTime;
-                }
-                else
-                {
-                    response.Add(new AvailabilityModel.Response(
-                        DayToText(group.Key),
-                        currentStart.ToString("HH:mm"),
-                        currentEnd.ToString("HH:mm")));
-
-                    currentStart = range.StartTime;
-                    currentEnd = range.EndTime;
-                }
-            }
-
-            response.Add(new AvailabilityModel.Response(
-                DayToText(group.Key),
-                currentStart.ToString("HH:mm"),
-                currentEnd.ToString("HH:mm")));
-        }
-
-        return response;
-    }
-
     private static DayOfWeek ParseDay(string day)
     {
         return day.Trim().ToUpperInvariant() switch
@@ -258,11 +275,5 @@ public class AvailabilityService : IAvailabilityService
     private static int DayOrder(DayOfWeek day)
     {
         return day == DayOfWeek.Sunday ? 7 : (int)day;
-    }
-
-    private static DateTime GetMonthStart()
-    {
-        var today = DateTime.Today;
-        return new DateTime(today.Year, today.Month, 1);
     }
 }
