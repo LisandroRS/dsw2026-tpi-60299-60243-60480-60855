@@ -10,17 +10,17 @@ namespace Dsw2026Tpi.Test.Services;
 
 public class SpecialityServiceTests
 {
-    private readonly IPersistence _persistence;
+    private readonly IPersistence _mockPersistence;
     private readonly SpecialityService _service;
 
     public SpecialityServiceTests()
     {
-        _persistence = Substitute.For<IPersistence>();
-        _service = new SpecialityService(_persistence);
+        _mockPersistence = Substitute.For<IPersistence>();
+        _service = new SpecialityService(_mockPersistence);
     }
 
     [Fact]
-    public async Task Crear_CuandoElNombreEstaVacio_DebeLanzarExcepcionDeValidacion()
+    public async Task Create_CuandoElNombreEstaVacio_DebeLanzarExcepcionDeValidacion()
     {
         var request = new SpecialityModel.Request(
             "",
@@ -35,7 +35,27 @@ public class SpecialityServiceTests
         Assert.Equal("name", detail.Field);
         Assert.Equal("required", detail.Issue);
 
-        await _persistence.DidNotReceive()
+        await _mockPersistence.DidNotReceive()
+            .Add(Arg.Any<Speciality>());
+    }
+
+    [Fact]
+    public async Task Create_CuandoElNombreEsDemasiadoCorto_DebeLanzarExcepcionDeValidacion()
+    {
+        var request = new SpecialityModel.Request(
+            "AB",
+            "Descripcion valida");
+
+        var exception =
+            await Assert.ThrowsAsync<ValidationException>(
+                () => _service.Create(request));
+
+        var detail = Assert.Single(exception.Error.Details);
+
+        Assert.Equal("name", detail.Field);
+        Assert.Equal("length_between_3_and_100", detail.Issue);
+
+        await _mockPersistence.DidNotReceive()
             .Add(Arg.Any<Speciality>());
     }
 }
