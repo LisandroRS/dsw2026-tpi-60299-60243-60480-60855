@@ -82,7 +82,7 @@ public class AppointmentController : AppController
 
         await _service.Cancel(id, patientEmail);
 
-        return Ok();
+        return Ok("ok");
     }
 
     [HttpGet]

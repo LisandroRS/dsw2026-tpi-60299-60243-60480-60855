@@ -112,10 +112,9 @@ public static class RateLimitingConfigurationExtensions
         error.AddDetail("request", "rate_limit_exceeded");
 
         httpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        httpContext.Response.ContentType = "application/json";
 
-        await httpContext.Response.WriteAsync(
-            JsonSerializer.Serialize(error),
+        await httpContext.Response.WriteAsJsonAsync(
+            error,
             cancellationToken);
     }
 }

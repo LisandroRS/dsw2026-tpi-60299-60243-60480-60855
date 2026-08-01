@@ -58,7 +58,7 @@ namespace Dsw2026Tpi.Api.Controllers
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.Delete(id);
-            return deleted ? Ok() : NotFound();
+            return deleted ? Ok("ok") : NotFound();
         }
     }
 }

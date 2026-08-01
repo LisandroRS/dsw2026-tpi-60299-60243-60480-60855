@@ -48,9 +48,9 @@ public class AppointmentService : IAppointmentService
             throw new ValidationException()
                 .WithDetail("doctorId", "required");
 
-        if (request.AvailabilityId == Guid.Empty)
+        if (request.AvailabilitySlotId == Guid.Empty)
             throw new ValidationException()
-                .WithDetail("availabilityId", "required");
+                .WithDetail("availabilitySlotId", "required");
 
         if (request.Patient == null)
             throw new ValidationException()
@@ -101,7 +101,7 @@ public class AppointmentService : IAppointmentService
             throw new AuthorizationException();
 
         var turn = await _persistence.GetById<Turn>(
-            request.AvailabilityId,
+            request.AvailabilitySlotId,
             "Doctor.Speciality");
 
         if (turn == null || turn.Deleted)
@@ -109,17 +109,17 @@ public class AppointmentService : IAppointmentService
 
         if (turn.DoctorId != doctor.Id)
             throw new ValidationException()
-                .WithDetail("availabilityId", "does_not_belong_to_doctor");
+                .WithDetail("availabilitySlotId", "does_not_belong_to_doctor");
 
         if (turn.StartDateTime <= DateTime.Now)
             throw new ValidationException()
-                .WithDetail("availabilityId", "slot_in_the_past");
+                .WithDetail("availabilitySlotId", "slot_in_the_past");
 
         if (!turn.IsAvailable)
             throw new ConflictException(
                 "Slot already booked",
                 "APPOINTMENT_CONFLICT")
-                .WithDetail("availabilityId", "slot_unavailable");
+                .WithDetail("availabilitySlotId", "slot_unavailable");
 
         turn.Book();
 

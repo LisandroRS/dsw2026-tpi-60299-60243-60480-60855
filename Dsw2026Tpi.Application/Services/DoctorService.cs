@@ -29,8 +29,8 @@ public class DoctorService : IDoctorService
         if (request.Name.Trim().Length < 3 || request.Name.Trim().Length > 100)
             throw new ValidationException().WithDetail("name", "length_between_3_and_100");
 
-        if (request.SpecialityId == Guid.Empty)
-            throw new ValidationException().WithDetail("specialityId", "required");
+        if (request.SpecialtyId == Guid.Empty)
+            throw new ValidationException().WithDetail("specialtyId", "required");
     }
 
     private static void ValidatePagination(int pageSize, int pageIndex, string? name)
@@ -73,7 +73,7 @@ public class DoctorService : IDoctorService
                 "DOCTOR_ALREADY_EXISTS")
                 .WithDetail("licenseNumber", "already_exists");
 
-        var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
+        var speciality = await _persistence.GetById<Speciality>(request.SpecialtyId);
         if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
 
 
@@ -100,7 +100,7 @@ public class DoctorService : IDoctorService
                 "DOCTOR_ALREADY_EXISTS")
                 .WithDetail("licenseNumber", "already_exists");
 
-        var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
+        var speciality = await _persistence.GetById<Speciality>(request.SpecialtyId);
         if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
 
         doctor.Update(request.Name.Trim(), licenseNumber, speciality);
