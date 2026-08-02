@@ -23,17 +23,17 @@ public class AvailabilityController : AppController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Create([FromBody] AvailabilityModel.Request request)
     {
-        await _service.Create(request);
-        return StatusCode(StatusCodes.Status201Created);
+        var availabilities = await _service.Create(request);
+        return StatusCode(StatusCodes.Status201Created, availabilities);
     }
 
     [HttpPut]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update([FromBody] AvailabilityModel.Request request)
     {
-        await _service.Update(request);
-        return NoContent();
+        var availabilities = await _service.Update(request);
+        return Ok(availabilities);
     }
 }

@@ -20,8 +20,27 @@ public class AvailabilityService : IAvailabilityService
         _holidayService = holidayService;
     }
 
+    private static AvailabilityModel.Response ToResponse(Availability availability)
+    {
+        return new AvailabilityModel.Response(
+            availability.Id,
+            DayToText(availability.DayOfWeek),
+            availability.StartTime.ToString("HH:mm"),
+            availability.EndTime.ToString("HH:mm"));
+    }
 
-    public async Task Create(AvailabilityModel.Request request)
+    private static AvailabilityModel.SaveResponse ToSaveResponse(Availability availability)
+    {
+        return new AvailabilityModel.SaveResponse(
+            availability.Id,
+            availability.DoctorId,
+            availability.Year,
+            availability.Month,
+            DayToText(availability.DayOfWeek),
+            availability.StartTime.ToString("HH:mm"),
+            availability.EndTime.ToString("HH:mm"));
+    }
+    public async Task<IEnumerable<AvailabilityModel.SaveResponse>> Create(AvailabilityModel.Request request)
     {
         var parsedDays = ValidateAndParseRequest(request);
         var doctor = await GetActiveDoctor(request.DoctorId);
@@ -49,10 +68,16 @@ public class AvailabilityService : IAvailabilityService
 
         await _persistence.AddRange(rules, saveChanges: false);
         await _persistence.AddRange(turns);
+
+        return rules
+            .OrderBy(r => DayOrder(r.DayOfWeek))
+            .ThenBy(r => r.StartTime)
+            .Select(ToSaveResponse)
+            .ToList();
     }
 
 
-    public async Task Update(AvailabilityModel.Request request)
+    public async Task<IEnumerable<AvailabilityModel.SaveResponse>> Update(AvailabilityModel.Request request)
     {
         var parsedDays = ValidateAndParseRequest(request);
         var doctor = await GetActiveDoctor(request.DoctorId);
@@ -88,6 +113,12 @@ public class AvailabilityService : IAvailabilityService
 
         await _persistence.AddRange(rules, saveChanges: false);
         await _persistence.AddRange(turns);
+
+        return rules
+            .OrderBy(r => DayOrder(r.DayOfWeek))
+            .ThenBy(r => r.StartTime)
+            .Select(ToSaveResponse)
+            .ToList();
     }
 
 
@@ -100,11 +131,7 @@ public class AvailabilityService : IAvailabilityService
         return rules
             .OrderBy(r => DayOrder(r.DayOfWeek))
             .ThenBy(r => r.StartTime)
-            .Select(r => new AvailabilityModel.Response(
-                r.Id,
-                DayToText(r.DayOfWeek),
-                r.StartTime.ToString("HH:mm"),
-                r.EndTime.ToString("HH:mm")))
+            .Select(ToResponse)
             .ToList();
     }
 

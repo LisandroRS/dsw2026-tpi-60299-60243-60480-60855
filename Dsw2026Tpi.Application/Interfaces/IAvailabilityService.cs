@@ -7,7 +7,7 @@ namespace Dsw2026Tpi.Application.Interfaces;
 
 public interface IAvailabilityService
 {
-    Task Create(AvailabilityModel.Request request);
-    Task Update(AvailabilityModel.Request request);
+    Task<IEnumerable<AvailabilityModel.SaveResponse>> Create(AvailabilityModel.Request request);
+    Task<IEnumerable<AvailabilityModel.SaveResponse>> Update(AvailabilityModel.Request request);
     Task<IEnumerable<AvailabilityModel.Response>> GetByDoctor(Guid doctorId);
 }
