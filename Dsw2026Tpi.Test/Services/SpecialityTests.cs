@@ -77,4 +77,23 @@ public class SpecialityServiceTests
         await _mockPersistence.DidNotReceive()
             .Add(Arg.Any<Speciality>());
     }
+
+    [Fact]
+    public async Task Create_CuandoLosDatosSonValidos_EntoncesSeGuardaYDevuelveLaEspecialidad()
+    {
+        var request = new SpecialityModel.Request(
+            "Cardiologia",
+            "Atencion cardiologica");
+
+        var response = await _service.Create(request);
+
+        Assert.Equal("Cardiologia", response.name);
+        Assert.Equal("Atencion cardiologica", response.description);
+        Assert.NotEqual(Guid.Empty, response.id);
+
+        await _mockPersistence.Received()
+            .Add(Arg.Is<Speciality>(speciality =>
+                speciality.Name == "Cardiologia" &&
+                speciality.Description == "Atencion cardiologica"));
+    }
 }
