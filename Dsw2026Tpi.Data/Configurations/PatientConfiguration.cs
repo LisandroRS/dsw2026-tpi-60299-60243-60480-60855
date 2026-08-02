@@ -17,6 +17,9 @@ public class PatientConfiguration : IEntityTypeConfiguration<Patient>
         builder.Property(p => p.Dni)
             .IsRequired();
 
+        builder.Property(p => p.FullName)
+            .IsRequired();
+
         builder.Property(p => p.IdentityUserId)
             .IsRequired()
             .HasMaxLength(450);

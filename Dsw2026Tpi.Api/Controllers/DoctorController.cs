@@ -1,6 +1,8 @@
 ﻿using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.CrossCutting.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Dsw2026Tpi.CrossCutting.Exceptions;
+using Dsw2026Tpi.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Dsw2026Tpi.Application.Dtos;
 
@@ -41,7 +43,10 @@ public class DoctorController : AppController
     public async Task<IActionResult> Update(Guid id, [FromBody] DoctorModel.Request request)
     {
         var doctor = await _service.Update(id, request);
-        return doctor == null ? NotFound() : Ok(doctor);
+        if (doctor == null)
+            throw new EntityNotFoundException(nameof(Doctor));
+
+        return Ok(doctor);
     }
 
     [HttpDelete("{id:guid}")]
@@ -50,7 +55,10 @@ public class DoctorController : AppController
     public async Task<IActionResult> Delete(Guid id)
     {
         var deleted = await _service.Delete(id);
-        return deleted ? Ok("ok") : NotFound();
+        if (!deleted)
+            throw new EntityNotFoundException(nameof(Doctor));
+
+        return Ok("ok");
     }
 
     [HttpGet("{id:guid}/availabilities")]

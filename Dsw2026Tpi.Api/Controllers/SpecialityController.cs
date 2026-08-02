@@ -3,6 +3,8 @@ using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.CrossCutting.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Dsw2026Tpi.CrossCutting.Exceptions;
+using Dsw2026Tpi.Domain.Entities;
 
 
 namespace Dsw2026Tpi.Api.Controllers
@@ -32,7 +34,10 @@ namespace Dsw2026Tpi.Api.Controllers
         public async Task<IActionResult> GetById(Guid id)
         {
             var speciality = await _service.GetById(id);
-            return speciality == null ? NotFound() : Ok(speciality);
+            if (speciality == null)
+                throw new EntityNotFoundException(nameof(Speciality));
+
+            return Ok(speciality);
         }
 
         [HttpPost]
@@ -49,7 +54,10 @@ namespace Dsw2026Tpi.Api.Controllers
         public async Task<IActionResult> Update(Guid id, [FromBody] SpecialityModel.Request request)
         {
             var speciality = await _service.Update(id, request);
-            return speciality == null ? NotFound() : Ok(speciality);
+            if (speciality == null)
+                throw new EntityNotFoundException(nameof(Speciality));
+
+            return Ok(speciality);
         }
 
         [HttpDelete("{id:guid}")]
@@ -58,7 +66,10 @@ namespace Dsw2026Tpi.Api.Controllers
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.Delete(id);
-            return deleted ? Ok("ok") : NotFound();
+            if (!deleted)
+                throw new EntityNotFoundException(nameof(Speciality));
+
+            return Ok("ok"); 
         }
     }
 }

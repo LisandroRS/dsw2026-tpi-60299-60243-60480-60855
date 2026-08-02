@@ -8,6 +8,7 @@ public class Patient : EntityBase
 {
     public string Email { get; private set; }
     public long Dni { get; private set; }
+    public string FullName { get; private set; }
     public string IdentityUserId { get; private set; }
 
     #region Constructor for EF
@@ -22,6 +23,7 @@ public class Patient : EntityBase
     {
         Email = email;
         Dni = dni;
+        FullName = string.Empty;
         IdentityUserId = identityUserId;
     }
 }

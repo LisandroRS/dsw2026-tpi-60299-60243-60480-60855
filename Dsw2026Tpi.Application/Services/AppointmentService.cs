@@ -3,6 +3,8 @@ using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.Domain.Entities;
 using Dsw2026Tpi.Domain.Interfaces;
 using Dsw2026Tpi.CrossCutting.Exceptions;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dsw2026Tpi.Application.Services;
 
@@ -32,6 +34,25 @@ public class AppointmentService : IAppointmentService
             StatusToText(appointment.Status));
     }
 
+    private static AppointmentModel.SearchResponse ToSearchResponse(Appointment appointment)
+    {
+        var turn = appointment.Turn!;
+        var doctor = turn.Doctor!;
+        var patient = appointment.Patient!;
+
+        return new AppointmentModel.SearchResponse(
+            appointment.Id,
+            StatusToText(appointment.Status),
+            new AppointmentModel.SearchPatientDto(
+                patient.Dni,
+                patient.FullName),
+            new AppointmentModel.SearchDoctorDto(
+                doctor.Id,
+                doctor.Name,
+                new AppointmentModel.SearchSpecialtyDto(
+                    doctor.Speciality!.Id,
+                    doctor.Speciality.Name)));
+    }
     private static string StatusToText(AppointmentStatus status)
     {
         return status switch
@@ -128,7 +149,19 @@ public class AppointmentService : IAppointmentService
             patient,
             request.Reason.Trim());
 
-        await _persistence.Add(appointment);
+        try
+        {
+            await _persistence.Add(appointment);
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is SqlException sqlException &&
+                  (sqlException.Number == 2601 || sqlException.Number == 2627))
+        {
+            throw new ConflictException(
+                "Slot already booked",
+                "APPOINTMENT_CONFLICT")
+                .WithDetail("availabilitySlotId", "slot_unavailable");
+        }
 
         return ToResponse(appointment);
     }
@@ -239,7 +272,7 @@ public class AppointmentService : IAppointmentService
             .ToList();
     }
 
-    public async Task<Pagination<AppointmentModel.Response>> Search(
+    public async Task<Pagination<AppointmentModel.SearchResponse>> Search(
         int pageSize,
         int pageIndex,
         Guid? specialityId,
@@ -292,6 +325,6 @@ public class AppointmentService : IAppointmentService
                 nameof(Appointment.Patient),
                 "Turn.Doctor.Speciality");
 
-        return appointments.Map(ToResponse);
+        return appointments.Map(ToSearchResponse);
     }
 }
