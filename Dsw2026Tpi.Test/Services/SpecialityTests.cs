@@ -58,4 +58,23 @@ public class SpecialityServiceTests
         await _mockPersistence.DidNotReceive()
             .Add(Arg.Any<Speciality>());
     }
+    [Fact]
+    public async Task Create_CuandoLaDescripcionEsNull_EntoncesSeLanzaUnaExcepcionDeValidacion()
+    {
+        var request = new SpecialityModel.Request(
+            "Cardiologia",
+            null!);
+
+        var exception =
+            await Assert.ThrowsAsync<ValidationException>(
+                () => _service.Create(request));
+
+        var detail = Assert.Single(exception.Error.Details);
+
+        Assert.Equal("description", detail.Field);
+        Assert.Equal("required", detail.Issue);
+
+        await _mockPersistence.DidNotReceive()
+            .Add(Arg.Any<Speciality>());
+    }
 }
