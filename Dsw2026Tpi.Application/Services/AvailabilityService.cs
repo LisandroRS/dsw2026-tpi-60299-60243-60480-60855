@@ -167,7 +167,7 @@ public class AvailabilityService : IAvailabilityService
             throw new ValidationException().WithDetail("doctorId", "required");
 
         var doctor = await _persistence.GetById<Doctor>(doctorId);
-        if (doctor == null || !doctor.IsActive)
+        if (doctor == null || doctor.Deleted)
             throw new EntityNotFoundException(nameof(Doctor));
 
         return doctor;

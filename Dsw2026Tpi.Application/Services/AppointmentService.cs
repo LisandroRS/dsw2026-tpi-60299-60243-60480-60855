@@ -88,7 +88,7 @@ public class AppointmentService : IAppointmentService
             request.DoctorId,
             nameof(Doctor.Speciality));
 
-        if (doctor == null || !doctor.IsActive)
+        if (doctor == null || doctor.Deleted)
             throw new EntityNotFoundException(nameof(Doctor));
 
         var patient = await _persistence.First<Patient>(

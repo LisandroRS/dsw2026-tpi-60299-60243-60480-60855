@@ -10,7 +10,7 @@ public class SpecialityConfiguration : IEntityTypeConfiguration<Speciality>
     {
         builder.ToTable("Specialities");
 
-        builder.Property(s => s.IsActive)
-            .HasDefaultValue(true);
+        builder.Property(s => s.Deleted)
+            .HasDefaultValue(false);
     }
 }
