@@ -5,17 +5,21 @@ using Dsw2026Tpi.Domain.Interfaces;
 using Dsw2026Tpi.CrossCutting.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Dsw2026Tpi.Application.Services;
 
 public class AppointmentService : IAppointmentService
 {
     private readonly IPersistence _persistence;
+    private readonly ILogger<AppointmentService> _logger;
 
-    public AppointmentService(IPersistence persistence)
+    public AppointmentService(IPersistence persistence, ILogger<AppointmentService> logger)
     {
         _persistence = persistence;
+        _logger = logger;
     }
+
     private static AppointmentModel.Response ToResponse(Appointment appointment)
     {
         var turn = appointment.Turn!;
@@ -163,6 +167,7 @@ public class AppointmentService : IAppointmentService
                 .WithDetail("availabilitySlotId", "slot_unavailable");
         }
 
+        _logger.LogInformation("Turno reservado: {AppointmentId}", appointment.Id);
         return ToResponse(appointment);
     }
 
@@ -252,6 +257,7 @@ public class AppointmentService : IAppointmentService
         turn.Release();
 
         await _persistence.SaveChanges();
+        _logger.LogInformation("Cita cancelada: {AppointmentId}", appointment.Id);
     }
 
     public async Task<IEnumerable<AppointmentModel.Response>> GetByDate(

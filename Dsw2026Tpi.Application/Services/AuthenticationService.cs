@@ -79,7 +79,15 @@ public class AuthenticationService : IAuthenticationService
     public async Task<LoginAdminModel.Response> LoginAdmin(LoginAdminModel.Request request)
     {
         if (!request.Email.IsEmailValid()) throw new AuthenticationException();
-        var user = await _userManager.FindByEmailAsync(request.Email) ?? throw new AuthenticationException();
+
+        var user = await _userManager.FindByEmailAsync(request.Email);
+
+        if (user == null)
+        {
+            _logger.LogError("Intento de login fallido para: {Email}", request.Email);
+            throw new AuthenticationException();
+        }
+
         var result = await _signInManager.CheckPassword(user, request.Password);
 
         if (!result)
@@ -91,6 +99,8 @@ public class AuthenticationService : IAuthenticationService
         var role = (await _userManager.GetRolesAsync(user)).FirstOrDefault();
 
         var token  = _jwtService.GenerateToken(user.UserName!, role);
+
+        _logger.LogInformation("Login de administrador exitoso para: {Email}", request.Email);
 
         return new LoginAdminModel.Response(
             token,
@@ -151,6 +161,8 @@ public class AuthenticationService : IAuthenticationService
         var token = _jwtService.GenerateToken(
             user.UserName!,
             Roles.Patient);
+
+        _logger.LogInformation("Login de paciente exitoso para: {Email}", email);
 
         return new LoginPatientModel.Response(
             token,

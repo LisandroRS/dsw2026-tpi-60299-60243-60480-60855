@@ -16,6 +16,10 @@ public class PersistenceEf: IPersistence
 
     public async Task<T> Add<T>(T entity) where T : EntityBase
     {
+        var now = DateTime.Now;
+        entity.CreatedAt = now;
+        entity.UpdatedAt = now;
+
         await _context.AddAsync(entity);
         await _context.SaveChangesAsync();
         return entity;
@@ -23,6 +27,15 @@ public class PersistenceEf: IPersistence
     public async Task AddRange<T>(IEnumerable<T> entities, bool saveChanges = true) where T : EntityBase
     {
         var entityList = entities.ToList();
+        var now = DateTime.Now;
+
+        foreach (var entity in entityList)
+        {
+            entity.CreatedAt = now;
+            entity.UpdatedAt = now;
+        }
+
+
         await _context.Set<T>().AddRangeAsync(entityList);
         if (saveChanges)
         {
@@ -31,6 +44,14 @@ public class PersistenceEf: IPersistence
     }
     public async Task SaveChanges()
     {
+        var now = DateTime.Now;
+
+        foreach (var entry in _context.ChangeTracker.Entries<EntityBase>())
+        {
+            if (entry.State == EntityState.Modified)
+                entry.Entity.UpdatedAt = now;
+        }
+
         await _context.SaveChangesAsync();
     }
 
@@ -73,6 +94,8 @@ public class PersistenceEf: IPersistence
 
     public async Task<T> Update<T>(T entity) where T : EntityBase
     {
+        entity.UpdatedAt = DateTime.Now;
+
         _context.Update(entity);
         await _context.SaveChangesAsync();
         return entity;
