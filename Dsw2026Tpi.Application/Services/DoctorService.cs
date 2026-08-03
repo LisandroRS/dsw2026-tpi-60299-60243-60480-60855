@@ -26,6 +26,10 @@ public class DoctorService : IDoctorService
             throw new ValidationException()
                 .WithDetail("licenseNumber", "required");
 
+        if (request.LicenseNumber.Trim().Length > 50)
+            throw new ValidationException()
+                .WithDetail("licenseNumber", "maximum_length_50");
+
         if (request.Name.Trim().Length < 3 || request.Name.Trim().Length > 100)
             throw new ValidationException().WithDetail("name", "length_between_3_and_100");
 

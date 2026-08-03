@@ -69,7 +69,21 @@ namespace Dsw2026Tpi.Application.Services
         {
             ValidateRequest(request);
 
-            var speciality = new Speciality(request.name.Trim(), request.description.Trim());
+            var name = request.name.Trim();
+
+            var existingSpeciality = await _persistence.First<Speciality>(
+                s => !s.Deleted && s.Name == name);
+
+            if (existingSpeciality != null)
+                throw new ConflictException(
+                    "Speciality already exists",
+                    "SPECIALITY_ALREADY_EXISTS")
+                    .WithDetail("name", "already_exists");
+
+            var speciality = new Speciality(
+                name,
+                request.description.Trim());
+
             await _persistence.Add(speciality);
 
             return ToResponse(speciality);
@@ -82,7 +96,20 @@ namespace Dsw2026Tpi.Application.Services
             var speciality = await _persistence.GetById<Speciality>(id);
             if (speciality == null || speciality.Deleted) return null;
 
-            speciality.Update(request.name.Trim(), request.description.Trim());
+            var name = request.name.Trim();
+
+            var existingSpeciality = await _persistence.First<Speciality>(
+                s => !s.Deleted &&
+                     s.Name == name &&
+                     s.Id != id);
+
+            if (existingSpeciality != null)
+                throw new ConflictException(
+                    "Speciality already exists",
+                    "SPECIALITY_ALREADY_EXISTS")
+                    .WithDetail("name", "already_exists");
+
+            speciality.Update(name, request.description.Trim());
             await _persistence.Update(speciality);
 
             return ToResponse(speciality);

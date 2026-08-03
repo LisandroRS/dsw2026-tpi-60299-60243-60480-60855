@@ -10,7 +10,15 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
     {
         builder.ToTable("Doctors");
 
+        builder.Property(d => d.Name)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(d => d.LicenseNumber)
+            .IsRequired()
+            .HasMaxLength(50);
+
         builder.Property(d => d.Deleted)
-        .HasDefaultValue(false);
+            .HasDefaultValue(false);
     }
 }

@@ -10,7 +10,19 @@ public class SpecialityConfiguration : IEntityTypeConfiguration<Speciality>
     {
         builder.ToTable("Specialities");
 
+        builder.Property(s => s.Name)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(s => s.Description)
+            .IsRequired()
+            .HasMaxLength(100);
+
         builder.Property(s => s.Deleted)
             .HasDefaultValue(false);
+
+        builder.HasIndex(s => s.Name)
+            .IsUnique()
+            .HasFilter("[Deleted] = 0");
     }
 }

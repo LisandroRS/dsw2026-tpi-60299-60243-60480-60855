@@ -85,18 +85,21 @@ public class AvailabilityService : IAvailabilityService
         var existingRules = await GetMonthRules(doctor.Id);
         var existingTurns = await GetMonthTurns(doctor.Id);
 
-   
-        var bookedTurns = existingTurns
+        var now = DateTime.Now;
+
+        var futureTurns = existingTurns
+            .Where(t => t.StartDateTime >= now)
+            .ToList();
+
+        var bookedTurns = futureTurns
             .Where(t => t.Status == TurnStatus.Booked)
             .ToList();
 
         foreach (var rule in existingRules)
             rule.Delete();
 
-        foreach (var turn in existingTurns.Where(t => t.Status != TurnStatus.Booked))
+        foreach (var turn in futureTurns.Where(t => t.Status != TurnStatus.Booked))
             turn.Delete();
-
-        var now = DateTime.Now;
 
         var rules = parsedDays
             .Select(p => new Availability(doctor, now.Year, now.Month, p.Day, p.StartTime, p.EndTime))
