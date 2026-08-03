@@ -3,17 +3,23 @@ using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.Domain.Entities;
 using Dsw2026Tpi.Domain.Interfaces;
 using Dsw2026Tpi.CrossCutting.Exceptions;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Dsw2026Tpi.Application.Services;
 
 public class AppointmentService : IAppointmentService
 {
     private readonly IPersistence _persistence;
+    private readonly ILogger<AppointmentService> _logger;
 
-    public AppointmentService(IPersistence persistence)
+    public AppointmentService(IPersistence persistence, ILogger<AppointmentService> logger)
     {
         _persistence = persistence;
+        _logger = logger;
     }
+
     private static AppointmentModel.Response ToResponse(Appointment appointment)
     {
         var turn = appointment.Turn!;
@@ -32,6 +38,25 @@ public class AppointmentService : IAppointmentService
             StatusToText(appointment.Status));
     }
 
+    private static AppointmentModel.SearchResponse ToSearchResponse(Appointment appointment)
+    {
+        var turn = appointment.Turn!;
+        var doctor = turn.Doctor!;
+        var patient = appointment.Patient!;
+
+        return new AppointmentModel.SearchResponse(
+            appointment.Id,
+            StatusToText(appointment.Status),
+            new AppointmentModel.SearchPatientDto(
+                patient.Dni,
+                patient.FullName),
+            new AppointmentModel.SearchDoctorDto(
+                doctor.Id,
+                doctor.Name,
+                new AppointmentModel.SearchSpecialtyDto(
+                    doctor.Speciality!.Id,
+                    doctor.Speciality.Name)));
+    }
     private static string StatusToText(AppointmentStatus status)
     {
         return status switch
@@ -88,7 +113,7 @@ public class AppointmentService : IAppointmentService
             request.DoctorId,
             nameof(Doctor.Speciality));
 
-        if (doctor == null || !doctor.IsActive)
+        if (doctor == null || doctor.Deleted)
             throw new EntityNotFoundException(nameof(Doctor));
 
         var patient = await _persistence.First<Patient>(
@@ -128,8 +153,21 @@ public class AppointmentService : IAppointmentService
             patient,
             request.Reason.Trim());
 
-        await _persistence.Add(appointment);
+        try
+        {
+            await _persistence.Add(appointment);
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is SqlException sqlException &&
+                  (sqlException.Number == 2601 || sqlException.Number == 2627))
+        {
+            throw new ConflictException(
+                "Slot already booked",
+                "APPOINTMENT_CONFLICT")
+                .WithDetail("availabilitySlotId", "slot_unavailable");
+        }
 
+        _logger.LogInformation("Turno reservado: {AppointmentId}", appointment.Id);
         return ToResponse(appointment);
     }
 
@@ -219,6 +257,7 @@ public class AppointmentService : IAppointmentService
         turn.Release();
 
         await _persistence.SaveChanges();
+        _logger.LogInformation("Cita cancelada: {AppointmentId}", appointment.Id);
     }
 
     public async Task<IEnumerable<AppointmentModel.Response>> GetByDate(
@@ -239,7 +278,7 @@ public class AppointmentService : IAppointmentService
             .ToList();
     }
 
-    public async Task<Pagination<AppointmentModel.Response>> Search(
+    public async Task<Pagination<AppointmentModel.SearchResponse>> Search(
         int pageSize,
         int pageIndex,
         Guid? specialityId,
@@ -292,6 +331,6 @@ public class AppointmentService : IAppointmentService
                 nameof(Appointment.Patient),
                 "Turn.Doctor.Speciality");
 
-        return appointments.Map(ToResponse);
+        return appointments.Map(ToSearchResponse);
     }
 }

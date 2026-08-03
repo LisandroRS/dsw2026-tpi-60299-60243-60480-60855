@@ -53,7 +53,7 @@ namespace Dsw2026Tpi.Application.Services
 
             var specialities = await _persistence.Paginate<Speciality, string>(
                 pageSize, pageIndex,
-                s => s.IsActive && (string.IsNullOrWhiteSpace(name) || s.Name.Contains(name)),
+                s => !s.Deleted && (string.IsNullOrWhiteSpace(name) || s.Name.Contains(name)),
                 s => s.Name);
 
             return specialities.Map(ToResponse);
@@ -62,14 +62,28 @@ namespace Dsw2026Tpi.Application.Services
         public async Task<SpecialityModel.Response?> GetById(Guid id)
         {
             var speciality = await _persistence.GetById<Speciality>(id);
-            return speciality == null || !speciality.IsActive ? null : ToResponse(speciality);
+            return speciality == null || speciality.Deleted ? null : ToResponse(speciality);
         }
 
         public async Task<SpecialityModel.Response> Create(SpecialityModel.Request request)
         {
             ValidateRequest(request);
 
-            var speciality = new Speciality(request.name.Trim(), request.description.Trim());
+            var name = request.name.Trim();
+
+            var existingSpeciality = await _persistence.First<Speciality>(
+                s => !s.Deleted && s.Name == name);
+
+            if (existingSpeciality != null)
+                throw new ConflictException(
+                    "Speciality already exists",
+                    "SPECIALITY_ALREADY_EXISTS")
+                    .WithDetail("name", "already_exists");
+
+            var speciality = new Speciality(
+                name,
+                request.description.Trim());
+
             await _persistence.Add(speciality);
 
             return ToResponse(speciality);
@@ -80,9 +94,22 @@ namespace Dsw2026Tpi.Application.Services
             ValidateRequest(request);
 
             var speciality = await _persistence.GetById<Speciality>(id);
-            if (speciality == null || !speciality.IsActive) return null;
+            if (speciality == null || speciality.Deleted) return null;
 
-            speciality.Update(request.name.Trim(), request.description.Trim());
+            var name = request.name.Trim();
+
+            var existingSpeciality = await _persistence.First<Speciality>(
+                s => !s.Deleted &&
+                     s.Name == name &&
+                     s.Id != id);
+
+            if (existingSpeciality != null)
+                throw new ConflictException(
+                    "Speciality already exists",
+                    "SPECIALITY_ALREADY_EXISTS")
+                    .WithDetail("name", "already_exists");
+
+            speciality.Update(name, request.description.Trim());
             await _persistence.Update(speciality);
 
             return ToResponse(speciality);
@@ -91,9 +118,9 @@ namespace Dsw2026Tpi.Application.Services
         public async Task<bool> Delete(Guid id)
         {
             var speciality = await _persistence.GetById<Speciality>(id);
-            if (speciality == null || !speciality.IsActive) return false;
+            if (speciality == null || speciality.Deleted) return false;
 
-            speciality.Deactivate();  //aca usamos el metodo de la entidad para q no haga el borrado fisico
+            speciality.Delete();  //aca usamos el metodo de la entidad para q no haga el borrado fisico
             await _persistence.Update(speciality);
 
             return true;

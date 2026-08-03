@@ -9,5 +9,6 @@ public interface IAppointmentService
     Task<IEnumerable<AppointmentModel.Response>> GetByPatient(long dni, string patientEmail);
     Task Cancel(Guid id, string patientEmail);
     Task<IEnumerable<AppointmentModel.Response>> GetByDate(DateOnly date);
-    Task<Pagination<AppointmentModel.Response>> Search(int pageSize, int pageIndex, Guid? specialityId, Guid? doctorId, long? dni, DateOnly? date);
+    Task<Pagination<AppointmentModel.SearchResponse>> Search(int pageSize, int pageIndex, Guid? specialityId, Guid? doctorId, long? dni, DateOnly? date);
+    //Task<Pagination<AppointmentModel.Response>> Search(int pageSize, int pageIndex, Guid? specialityId, Guid? doctorId, long? dni, DateOnly? date);
 }

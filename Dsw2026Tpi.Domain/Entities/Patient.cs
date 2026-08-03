@@ -8,7 +8,10 @@ public class Patient : EntityBase
 {
     public string Email { get; private set; }
     public long Dni { get; private set; }
+    public string FullName { get; private set; }
     public string IdentityUserId { get; private set; }
+    public bool Deleted { get; private set; }
+
 
     #region Constructor for EF
 #pragma warning disable CS8618
@@ -22,6 +25,8 @@ public class Patient : EntityBase
     {
         Email = email;
         Dni = dni;
+        FullName = string.Empty;
         IdentityUserId = identityUserId;
+        Deleted = false;    
     }
 }

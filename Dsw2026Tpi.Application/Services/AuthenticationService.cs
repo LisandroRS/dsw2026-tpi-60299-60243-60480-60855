@@ -36,6 +36,22 @@ public class AuthenticationService : IAuthenticationService
         _persistence = persistence;
     }
 
+    private static void ValidateAdminRequest(LoginAdminModel.Request request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new ValidationException().WithDetail("email", "required");
+
+        if (!request.Email.IsEmailValid())
+            throw new ValidationException().WithDetail("email", "invalid");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            throw new ValidationException().WithDetail("password", "required");
+
+        if (request.Password.Length < 8)
+            throw new ValidationException().WithDetail(
+                "password",
+                "minimum_length_8");
+    }
     private static void ValidatePatientRequest(LoginPatientModel.Request request)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
@@ -78,8 +94,16 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<LoginAdminModel.Response> LoginAdmin(LoginAdminModel.Request request)
     {
-        if (!request.Email.IsEmailValid()) throw new AuthenticationException();
-        var user = await _userManager.FindByEmailAsync(request.Email) ?? throw new AuthenticationException();
+        ValidateAdminRequest(request);
+
+        var user = await _userManager.FindByEmailAsync(request.Email);
+
+        if (user == null)
+        {
+            _logger.LogError("Intento de login fallido para: {Email}", request.Email);
+            throw new AuthenticationException();
+        }
+
         var result = await _signInManager.CheckPassword(user, request.Password);
 
         if (!result)
@@ -92,9 +116,11 @@ public class AuthenticationService : IAuthenticationService
 
         var token  = _jwtService.GenerateToken(user.UserName!, role);
 
+        _logger.LogInformation("Login de administrador exitoso para: {Email}", request.Email);
+
         return new LoginAdminModel.Response(
             token,
-            role
+            role?.ToUpperInvariant()
         );
     }
 
@@ -148,13 +174,17 @@ public class AuthenticationService : IAuthenticationService
                 throw new AuthenticationException();
         }
 
+        var role = Roles.Patient;
+
         var token = _jwtService.GenerateToken(
             user.UserName!,
-            Roles.Patient);
+            role);
+
+        _logger.LogInformation("Login de paciente exitoso para: {Email}", email);
 
         return new LoginPatientModel.Response(
             token,
-            Roles.Patient
+            role.ToUpperInvariant()
         );
     }
 

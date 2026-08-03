@@ -20,8 +20,27 @@ public class AvailabilityService : IAvailabilityService
         _holidayService = holidayService;
     }
 
+    private static AvailabilityModel.Response ToResponse(Availability availability)
+    {
+        return new AvailabilityModel.Response(
+            availability.Id,
+            DayToText(availability.DayOfWeek),
+            availability.StartTime.ToString("HH:mm"),
+            availability.EndTime.ToString("HH:mm"));
+    }
 
-    public async Task Create(AvailabilityModel.Request request)
+    private static AvailabilityModel.SaveResponse ToSaveResponse(Availability availability)
+    {
+        return new AvailabilityModel.SaveResponse(
+            availability.Id,
+            availability.DoctorId,
+            availability.Year,
+            availability.Month,
+            DayToText(availability.DayOfWeek),
+            availability.StartTime.ToString("HH:mm"),
+            availability.EndTime.ToString("HH:mm"));
+    }
+    public async Task<IEnumerable<AvailabilityModel.SaveResponse>> Create(AvailabilityModel.Request request)
     {
         var parsedDays = ValidateAndParseRequest(request);
         var doctor = await GetActiveDoctor(request.DoctorId);
@@ -49,10 +68,16 @@ public class AvailabilityService : IAvailabilityService
 
         await _persistence.AddRange(rules, saveChanges: false);
         await _persistence.AddRange(turns);
+
+        return rules
+            .OrderBy(r => DayOrder(r.DayOfWeek))
+            .ThenBy(r => r.StartTime)
+            .Select(ToSaveResponse)
+            .ToList();
     }
 
 
-    public async Task Update(AvailabilityModel.Request request)
+    public async Task<IEnumerable<AvailabilityModel.SaveResponse>> Update(AvailabilityModel.Request request)
     {
         var parsedDays = ValidateAndParseRequest(request);
         var doctor = await GetActiveDoctor(request.DoctorId);
@@ -60,18 +85,21 @@ public class AvailabilityService : IAvailabilityService
         var existingRules = await GetMonthRules(doctor.Id);
         var existingTurns = await GetMonthTurns(doctor.Id);
 
-   
-        var bookedTurns = existingTurns
+        var now = DateTime.Now;
+
+        var futureTurns = existingTurns
+            .Where(t => t.StartDateTime >= now)
+            .ToList();
+
+        var bookedTurns = futureTurns
             .Where(t => t.Status == TurnStatus.Booked)
             .ToList();
 
         foreach (var rule in existingRules)
             rule.Delete();
 
-        foreach (var turn in existingTurns.Where(t => t.Status != TurnStatus.Booked))
+        foreach (var turn in futureTurns.Where(t => t.Status != TurnStatus.Booked))
             turn.Delete();
-
-        var now = DateTime.Now;
 
         var rules = parsedDays
             .Select(p => new Availability(doctor, now.Year, now.Month, p.Day, p.StartTime, p.EndTime))
@@ -88,6 +116,12 @@ public class AvailabilityService : IAvailabilityService
 
         await _persistence.AddRange(rules, saveChanges: false);
         await _persistence.AddRange(turns);
+
+        return rules
+            .OrderBy(r => DayOrder(r.DayOfWeek))
+            .ThenBy(r => r.StartTime)
+            .Select(ToSaveResponse)
+            .ToList();
     }
 
 
@@ -100,11 +134,7 @@ public class AvailabilityService : IAvailabilityService
         return rules
             .OrderBy(r => DayOrder(r.DayOfWeek))
             .ThenBy(r => r.StartTime)
-            .Select(r => new AvailabilityModel.Response(
-                r.Id,
-                DayToText(r.DayOfWeek),
-                r.StartTime.ToString("HH:mm"),
-                r.EndTime.ToString("HH:mm")))
+            .Select(ToResponse)
             .ToList();
     }
 
@@ -140,7 +170,7 @@ public class AvailabilityService : IAvailabilityService
             throw new ValidationException().WithDetail("doctorId", "required");
 
         var doctor = await _persistence.GetById<Doctor>(doctorId);
-        if (doctor == null || !doctor.IsActive)
+        if (doctor == null || doctor.Deleted)
             throw new EntityNotFoundException(nameof(Doctor));
 
         return doctor;

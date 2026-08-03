@@ -26,6 +26,10 @@ public class DoctorService : IDoctorService
             throw new ValidationException()
                 .WithDetail("licenseNumber", "required");
 
+        if (request.LicenseNumber.Trim().Length > 50)
+            throw new ValidationException()
+                .WithDetail("licenseNumber", "maximum_length_50");
+
         if (request.Name.Trim().Length < 3 || request.Name.Trim().Length > 100)
             throw new ValidationException().WithDetail("name", "length_between_3_and_100");
 
@@ -52,7 +56,7 @@ public class DoctorService : IDoctorService
 
         var doctors = await _persistence.Paginate<Doctor, string>(
             pageSize, pageIndex,
-            d => d.IsActive && (string.IsNullOrWhiteSpace(name) || d.Name.Contains(name)),
+            d => !d.Deleted && (string.IsNullOrWhiteSpace(name) || d.Name.Contains(name)),
             d => d.Name,
             nameof(Doctor.Speciality));
 
@@ -74,7 +78,7 @@ public class DoctorService : IDoctorService
                 .WithDetail("licenseNumber", "already_exists");
 
         var speciality = await _persistence.GetById<Speciality>(request.SpecialtyId);
-        if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
+        if (speciality == null || speciality.Deleted) throw new EntityNotFoundException(nameof(Speciality));
 
 
         var doctor = new Doctor(request.Name.Trim(), licenseNumber, speciality);
@@ -88,7 +92,7 @@ public class DoctorService : IDoctorService
         ValidateRequest(request);
 
         var doctor = await _persistence.GetById<Doctor>(id);
-        if (doctor == null || !doctor.IsActive) return null;
+        if (doctor == null || doctor.Deleted) return null;
 
         var licenseNumber = request.LicenseNumber.Trim();
 
@@ -101,7 +105,7 @@ public class DoctorService : IDoctorService
                 .WithDetail("licenseNumber", "already_exists");
 
         var speciality = await _persistence.GetById<Speciality>(request.SpecialtyId);
-        if (speciality == null || !speciality.IsActive) throw new EntityNotFoundException(nameof(Speciality));
+        if (speciality == null || speciality.Deleted) throw new EntityNotFoundException(nameof(Speciality));
 
         doctor.Update(request.Name.Trim(), licenseNumber, speciality);
         await _persistence.Update(doctor);
@@ -113,9 +117,9 @@ public class DoctorService : IDoctorService
     public async Task<bool> Delete(Guid id)
     {
         var doctor = await _persistence.GetById<Doctor>(id);
-        if (doctor == null || !doctor.IsActive) return false;
+        if (doctor == null || doctor.Deleted) return false;
 
-        doctor.Deactivate();
+        doctor.Delete();
         await _persistence.Update(doctor);
 
         return true;

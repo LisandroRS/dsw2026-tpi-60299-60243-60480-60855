@@ -1,6 +1,7 @@
 ﻿using Dsw2026Tpi.Api.Configurations;
 using Dsw2026Tpi.Application.Dtos;
 using Dsw2026Tpi.Application.Interfaces;
+using Dsw2026Tpi.CrossCutting.Exceptions;
 using Dsw2026Tpi.CrossCutting.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,7 +35,7 @@ public class AppointmentController : AppController
         var patientEmail = User.Identity?.Name;
 
         if (string.IsNullOrWhiteSpace(patientEmail))
-            return Unauthorized();
+            throw new AuthorizationException();
 
         var appointment = await _service.Create(
             request,
@@ -57,7 +58,7 @@ public class AppointmentController : AppController
         var patientEmail = User.Identity?.Name;
 
         if (string.IsNullOrWhiteSpace(patientEmail))
-            return Unauthorized();
+            throw new AuthorizationException();
 
         var appointments = await _service.GetByPatient(
             dni,
@@ -78,7 +79,7 @@ public class AppointmentController : AppController
         var patientEmail = User.Identity?.Name;
 
         if (string.IsNullOrWhiteSpace(patientEmail))
-            return Unauthorized();
+            throw new AuthorizationException();
 
         await _service.Cancel(id, patientEmail);
 

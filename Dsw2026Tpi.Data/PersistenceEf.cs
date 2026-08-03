@@ -16,21 +16,38 @@ public class PersistenceEf: IPersistence
 
     public async Task<T> Add<T>(T entity) where T : EntityBase
     {
+        var now = DateTime.Now;
+        entity.CreatedAt = now;
+        entity.UpdatedAt = now;
+
         await _context.AddAsync(entity);
+        ApplyUpdatedAt();
         await _context.SaveChangesAsync();
         return entity;
     }
     public async Task AddRange<T>(IEnumerable<T> entities, bool saveChanges = true) where T : EntityBase
     {
         var entityList = entities.ToList();
+        var now = DateTime.Now;
+
+        foreach (var entity in entityList)
+        {
+            entity.CreatedAt = now;
+            entity.UpdatedAt = now;
+        }
+
+
         await _context.Set<T>().AddRangeAsync(entityList);
         if (saveChanges)
         {
+            ApplyUpdatedAt();
             await _context.SaveChangesAsync();
         }
     }
     public async Task SaveChanges()
     {
+        ApplyUpdatedAt();
+
         await _context.SaveChangesAsync();
     }
 
@@ -38,6 +55,7 @@ public class PersistenceEf: IPersistence
     {
         var a = entity.Id;
         _context.Remove(entity);
+        ApplyUpdatedAt();
         await _context.SaveChangesAsync();
         return entity;
     }
@@ -45,9 +63,17 @@ public class PersistenceEf: IPersistence
     {
         var existingList = existingEntities.ToList();
         var newList = newEntities.ToList();
+        var now = DateTime.Now;
+
+        foreach (var entity in newList)
+        {
+            entity.CreatedAt = now;
+            entity.UpdatedAt = now;
+        }
 
         _context.RemoveRange(existingList);
         await _context.Set<T>().AddRangeAsync(newList);
+        ApplyUpdatedAt();
         await _context.SaveChangesAsync();
     }
 
@@ -73,7 +99,10 @@ public class PersistenceEf: IPersistence
 
     public async Task<T> Update<T>(T entity) where T : EntityBase
     {
+        entity.UpdatedAt = DateTime.Now;
+
         _context.Update(entity);
+        ApplyUpdatedAt();
         await _context.SaveChangesAsync();
         return entity;
     }
@@ -135,5 +164,15 @@ public class PersistenceEf: IPersistence
             includedQuery = includedQuery.Include(include);
         }
         return includedQuery;
+    }
+    private void ApplyUpdatedAt()
+    {
+        var now = DateTime.Now;
+
+        foreach (var entry in _context.ChangeTracker.Entries<EntityBase>())
+        {
+            if (entry.State == EntityState.Modified)
+                entry.Entity.UpdatedAt = now;
+        }
     }
 }
