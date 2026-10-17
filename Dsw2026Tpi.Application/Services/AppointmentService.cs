@@ -290,6 +290,9 @@ public class AppointmentService : IAppointmentService
             throw new ValidationException()
                 .WithDetail("pageSize", "greater_than_zero");
 
+        if (pageSize > PaginationOptions.MaxPageSize)
+            throw new ValidationException().WithDetail("pageSize", "maximum_100");
+
         if (pageIndex < 0)
             throw new ValidationException()
                 .WithDetail("pageIndex", "greater_than_or_equal_to_zero");

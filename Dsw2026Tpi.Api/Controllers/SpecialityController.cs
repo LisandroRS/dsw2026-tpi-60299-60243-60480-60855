@@ -22,7 +22,10 @@ namespace Dsw2026Tpi.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAll([FromQuery] int pageSize, [FromQuery] int pageIndex, [FromQuery] string? name = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int pageSize = PaginationOptions.DefaultPageSize,
+            [FromQuery] int pageIndex = PaginationOptions.DefaultPageIndex,
+            [FromQuery] string? name = null)
         {
             var specialities = await _service.GetAll(pageSize, pageIndex, name);
             return Ok(specialities);

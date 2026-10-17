@@ -3,6 +3,7 @@ using Dsw2026Tpi.Application.Dtos;
 using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.CrossCutting.Exceptions;
 using Dsw2026Tpi.CrossCutting.Identity;
+using Dsw2026Tpi.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -107,8 +108,8 @@ public class AppointmentController : AppController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Search(
-    [FromQuery] int pageSize = 10,
-    [FromQuery] int pageIndex = 0,
+    [FromQuery] int pageSize = PaginationOptions.DefaultPageSize,
+    [FromQuery] int pageIndex = PaginationOptions.DefaultPageIndex,
     [FromQuery(Name = "specialtyId")] Guid? specialityId = null,
     [FromQuery] Guid? doctorId = null,
     [FromQuery] long? dni = null,

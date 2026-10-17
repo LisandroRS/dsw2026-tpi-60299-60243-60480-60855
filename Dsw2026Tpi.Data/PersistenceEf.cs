@@ -109,50 +109,28 @@ public class PersistenceEf: IPersistence
 
     public async Task<Pagination<T>> Paginate<T, TKey>(int pageSize, int pageIndex, Expression<Func<T, bool>> predicate, Expression<Func<T, TKey>> sortOrder, params string[] includes) where T : EntityBase
     {
-        pageSize = Math.Abs(pageSize);
-        pageIndex = Math.Abs(pageIndex) == 0 ? 0 : Math.Abs(pageIndex) - 1;
+        if (pageSize <= 0 || pageSize > PaginationOptions.MaxPageSize)
+            throw new ArgumentOutOfRangeException(nameof(pageSize));
+
+        if (pageIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(pageIndex));
 
         var filtered = Include(_context.Set<T>(), includes)
                  .Where(predicate)
-                 .OrderBy(sortOrder);
+                 .OrderBy(sortOrder)
+                 .ThenBy(entity => entity.Id);
 
         var total = await filtered.CountAsync();
 
-        
-        async Task<Pagination<T>> GetPage(int skip, int take)
-        {
-            var data = await filtered.Skip(skip)
-                    .Take(take)
-                    .ToListAsync();
+        var skip = (long)pageIndex * pageSize;
+        if (skip >= total)
+            return new Pagination<T>(pageSize, pageIndex, total, []);
 
-            return new Pagination<T>(pageSize, pageIndex, total, data);
-        }
-        
-        //la pagina existe
-        if (total > pageSize * pageIndex)
-        {
-            return await GetPage(pageIndex * pageSize, pageSize);
-        }
+        var data = await filtered.Skip((int)skip)
+            .Take(pageSize)
+            .ToListAsync();
 
-        //solo hay una pagina
-        if (total < pageSize)
-        {
-            return new Pagination<T>(pageSize, pageIndex, total, await filtered.ToListAsync());
-        }
-
-        var targetPageIndex = pageIndex - 1;
-
-        while (true)
-        {
-            if (total > targetPageIndex * pageSize)
-            {
-                return await GetPage(targetPageIndex * pageSize, pageSize);
-            }
-
-            targetPageIndex--;
-
-            if (targetPageIndex < 0) return new Pagination<T>(pageSize, 0, 0, []);
-        }
+        return new Pagination<T>(pageSize, pageIndex, total, data);
     }
 
     private static IQueryable<T> Include<T>(IQueryable<T> query, string[] includes) where T : EntityBase
