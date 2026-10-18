@@ -112,7 +112,13 @@ public class AuthenticationService : IAuthenticationService
             throw new AuthenticationException();
         }
 
-        var role = (await _userManager.GetRolesAsync(user)).FirstOrDefault();
+        if (user.Deleted || !await _userManager.IsInRoleAsync(user, Roles.Administrator))
+        {
+            _logger.LogError("Login de administrador rechazado (cuenta eliminada o sin rol) para: {Email}", request.Email);
+            throw new AuthenticationException();
+        }
+
+        var role = Roles.Administrator;
 
         var token  = _jwtService.GenerateToken(user.UserName!, role);
 
@@ -156,17 +162,38 @@ public class AuthenticationService : IAuthenticationService
                     .WithDetail(result.Errors.Select(
                         e => (e.Code, e.Description)));
 
-            _ = await _userManager.AddToRoleAsync(user, Roles.Patient);
+            try
+            {
+                var roleResult = await _userManager.AddToRoleAsync(user, Roles.Patient);
 
-            patient = new Patient(email, request.Dni, user.Id);
-            await _persistence.Add(patient);
+                if (!roleResult.Succeeded)
+                    throw new ConflictException(
+                        nameof(ErrorCodes.REGISTER_USER_CONFLICT),
+                        ErrorCodes.REGISTER_USER_CONFLICT)
+                        .WithDetail(roleResult.Errors.Select(
+                            e => (e.Code, e.Description)));
+
+                patient = new Patient(email, request.Dni, user.Id);
+                await _persistence.Add(patient);
+            }
+            catch
+            {
+                await _userManager.DeleteAsync(user);
+                throw;
+            }
 
             _logger.LogInformation("Paciente registrado: {Email}", email);
         }
         else
         {
+            if (patient.Deleted)
+                throw new AuthenticationException();
+
             user = await _userManager.FindByIdAsync(patient.IdentityUserId)
                 ?? throw new AuthenticationException();
+
+            if (user.Deleted)
+                throw new AuthenticationException();
 
             var roles = await _userManager.GetRolesAsync(user);
 
@@ -207,7 +234,15 @@ public class AuthenticationService : IAuthenticationService
             ErrorCodes.REGISTER_USER_CONFLICT)
                 .WithDetail(result.Errors.Select(e => (e.Code, e.Description)));
        
-        _ = await _userManager.AddToRoleAsync(user, Roles.Administrator);
+         var roleResult = await _userManager.AddToRoleAsync(user, Roles.Administrator);
+
+        if (!roleResult.Succeeded)
+        {
+            await _userManager.DeleteAsync(user);
+            throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_CONFLICT),
+                ErrorCodes.REGISTER_USER_CONFLICT)
+                    .WithDetail(roleResult.Errors.Select(e => (e.Code, e.Description)));
+        }
 
         _logger.LogInformation("Usuario registrado: {Email}", request.Email);
 

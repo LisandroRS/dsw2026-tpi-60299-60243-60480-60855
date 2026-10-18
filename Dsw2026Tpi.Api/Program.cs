@@ -1,3 +1,7 @@
+using Dsw2026Tpi.CrossCutting.Identity;
+using Dsw2026Tpi.Data.Identity;
+using Microsoft.AspNetCore.Identity;
+
 using Dsw2026Tpi.Api.Configurations;
 using Dsw2026Tpi.Api.Middlewares;
 using Microsoft.AspNetCore.Authentication;
@@ -35,6 +39,39 @@ public class Program
             builder.Services.AddHealthChecks();
 
             var app = builder.Build();
+
+            //seeder del admin 
+            using (var scope = app.Services.CreateScope())
+            {
+                var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+                var adminEmail = builder.Configuration["AdminSeed:Email"]!;
+                var adminPassword = builder.Configuration["AdminSeed:Password"]!;
+
+                if (await userManager.FindByEmailAsync(adminEmail) == null)
+                {
+                    var admin = new ApplicationUser
+                    {
+                        UserName = adminEmail,
+                        Email = adminEmail,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    var result = await userManager.CreateAsync(admin, adminPassword);
+                    if (!result.Succeeded)
+                        throw new InvalidOperationException("No se pudo crear el administrador inicial: " +
+                            string.Join("; ", result.Errors.Select(e => e.Description)));
+
+                    result = await userManager.AddToRoleAsync(admin, Roles.Administrator);
+                    if (!result.Succeeded)
+                    {
+                        await userManager.DeleteAsync(admin);
+                        throw new InvalidOperationException("No se pudo asignar el rol al administrador inicial");
+                    }
+
+                    Log.Information("Administrador inicial creado: {Email}", adminEmail);
+                }
+            }
 
             app.UseSerilogRequestLogging();
 
