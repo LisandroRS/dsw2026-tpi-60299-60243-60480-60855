@@ -157,8 +157,8 @@ public class AuthenticationService : IAuthenticationService
 
             if (!result.Succeeded)
                 throw new ConflictException(
-                    nameof(ErrorCodes.REGISTER_USER_CONFLICT),
-                    ErrorCodes.REGISTER_USER_CONFLICT)
+                     ErrorCodes.REGISTER_USER_CONFLICT,
+                    nameof(ErrorCodes.REGISTER_USER_CONFLICT))
                     .WithDetail(result.Errors.Select(
                         e => (e.Code, e.Description)));
 
@@ -168,8 +168,8 @@ public class AuthenticationService : IAuthenticationService
 
                 if (!roleResult.Succeeded)
                     throw new ConflictException(
-                        nameof(ErrorCodes.REGISTER_USER_CONFLICT),
-                        ErrorCodes.REGISTER_USER_CONFLICT)
+                        ErrorCodes.REGISTER_USER_CONFLICT,
+                        nameof(ErrorCodes.REGISTER_USER_CONFLICT))
                         .WithDetail(roleResult.Errors.Select(
                             e => (e.Code, e.Description)));
 
@@ -230,8 +230,8 @@ public class AuthenticationService : IAuthenticationService
 
         var result = await _userManager.CreateAsync(user, request.Password);
 
-        if (!result.Succeeded) throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_CONFLICT),
-            ErrorCodes.REGISTER_USER_CONFLICT)
+        if (!result.Succeeded) throw new ConflictException(ErrorCodes.REGISTER_USER_CONFLICT,
+    nameof(ErrorCodes.REGISTER_USER_CONFLICT))
                 .WithDetail(result.Errors.Select(e => (e.Code, e.Description)));
        
          var roleResult = await _userManager.AddToRoleAsync(user, Roles.Administrator);
@@ -239,8 +239,8 @@ public class AuthenticationService : IAuthenticationService
         if (!roleResult.Succeeded)
         {
             await _userManager.DeleteAsync(user);
-            throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_CONFLICT),
-                ErrorCodes.REGISTER_USER_CONFLICT)
+            throw new ConflictException(ErrorCodes.REGISTER_USER_CONFLICT,
+                nameof(ErrorCodes.REGISTER_USER_CONFLICT))
                     .WithDetail(roleResult.Errors.Select(e => (e.Code, e.Description)));
         }
 

@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+using Dsw2026Tpi.CrossCutting.Models;
+using Dsw2026Tpi.CrossCutting.Resources;
+
 namespace Dsw2026Tpi.Api.Configurations;
 
 public static class SecurityConfigurationExtensions
@@ -37,8 +40,28 @@ public static class SecurityConfigurationExtensions
                     ValidIssuer = issuer,
                     ValidAudience = audience,
                     IssuerSigningKey = new SymmetricSecurityKey(key)
+
+                };
+                 options.Events = new JwtBearerEvents
+                {
+                    OnChallenge = async context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        await context.Response.WriteAsJsonAsync(new ErrorResponse(
+                            "UNAUTHORIZED",
+                            "Se requiere iniciar sesión o el token es inválido o expiró"));
+                    },
+                    OnForbidden = async context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        await context.Response.WriteAsJsonAsync(new ErrorResponse(
+                            nameof(ErrorCodes.AUTHORIZATION_FAILED),
+                            ErrorCodes.AUTHORIZATION_FAILED));
+                    }
                 };
             });
+
         services.AddAuthorizationBuilder()
             .AddPolicy(Policies.AdminPolicy, policy =>
                 policy.RequireRole(Roles.Administrator))
@@ -76,7 +99,8 @@ public static class SecurityConfigurationExtensions
                 policy.WithOrigins(allowedOrigins)
                      .AllowAnyHeader()
                      .AllowAnyMethod()
-                     .AllowCredentials();
+                     .AllowCredentials()
+                    .WithExposedHeaders("Retry-After");
             });
         });
 

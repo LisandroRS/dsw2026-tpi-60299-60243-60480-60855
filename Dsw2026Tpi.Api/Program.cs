@@ -2,6 +2,10 @@ using Dsw2026Tpi.CrossCutting.Identity;
 using Dsw2026Tpi.Data.Identity;
 using Microsoft.AspNetCore.Identity;
 
+using Dsw2026Tpi.CrossCutting.Models;
+using Dsw2026Tpi.CrossCutting.Resources;
+using Microsoft.AspNetCore.Mvc;
+
 using Dsw2026Tpi.Api.Configurations;
 using Dsw2026Tpi.Api.Middlewares;
 using Microsoft.AspNetCore.Authentication;
@@ -35,7 +39,27 @@ public class Program
             builder.Services.AddAppCors(builder.Configuration);
             builder.Services.AddAppDependencies();
             builder.Services.AddAppRateLimiting(builder.Configuration);
-            builder.Services.AddControllers();
+            builder.Services.AddControllers()
+            .ConfigureApiBehaviorOptions(options =>
+                {
+                    //JSON mal formado
+                    options.InvalidModelStateResponseFactory = context =>
+                    {
+                        var error = new ErrorResponse(
+                            nameof(ErrorCodes.VALIDATION_ERROR),
+                            ErrorCodes.VALIDATION_ERROR);
+
+                        foreach (var (field, entry) in context.ModelState)
+                        {
+                            if (entry.Errors.Count > 0)
+                                error.AddDetail(field, "invalid");
+                        }
+
+                        return new BadRequestObjectResult(error);
+                    };
+                });
+
+
             builder.Services.AddHealthChecks();
 
             var app = builder.Build();
