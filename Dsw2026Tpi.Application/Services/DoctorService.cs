@@ -1,4 +1,4 @@
-﻿using Dsw2026Tpi.Application.Dtos;
+using Dsw2026Tpi.Application.Dtos;
 using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.Domain.Entities;
 using Dsw2026Tpi.Domain.Interfaces;
@@ -37,7 +37,7 @@ public class DoctorService : IDoctorService
             throw new ValidationException().WithDetail("specialtyId", "required");
     }
 
-    private static void ValidatePagination(int pageSize, int pageIndex, string? name)
+    private static void ValidatePagination(int pageSize, int pageIndex, string? name, Guid? specialtyId = null)
     {
         if (pageSize <= 0)
             throw new ValidationException().WithDetail("pageSize", "greater_than_zero");
@@ -50,16 +50,22 @@ public class DoctorService : IDoctorService
 
         if (!string.IsNullOrWhiteSpace(name) && (name.Trim().Length < 3 || name.Trim().Length > 100))
             throw new ValidationException().WithDetail("name", "length_between_3_and_100");
+
+        if (specialtyId.HasValue && specialtyId.Value == Guid.Empty)
+            throw new ValidationException().WithDetail("specialtyId", "invalid");
     }
 
-    public async Task<Pagination<DoctorModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null)
+    public async Task<Pagination<DoctorModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null, Guid? specialtyId = null)
     {
 
-        ValidatePagination(pageSize, pageIndex, name);
+        ValidatePagination(pageSize, pageIndex, name, specialtyId);
 
         var doctors = await _persistence.Paginate<Doctor, string>(
             pageSize, pageIndex,
-            d => !d.Deleted && (string.IsNullOrWhiteSpace(name) || d.Name.Contains(name)),
+            d => !d.Deleted &&
+                 d.Speciality != null && !d.Speciality.Deleted &&
+                 (!specialtyId.HasValue || d.SpecialityId == specialtyId.Value) &&
+                 (string.IsNullOrWhiteSpace(name) || d.Name.Contains(name)),
             d => d.Name,
             nameof(Doctor.Speciality));
 

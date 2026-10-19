@@ -1,4 +1,4 @@
-﻿using Dsw2026Tpi.CrossCutting.Identity;
+using Dsw2026Tpi.CrossCutting.Identity;
 using Dsw2026Tpi.Data.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -66,7 +66,9 @@ public static class SecurityConfigurationExtensions
             .AddPolicy(Policies.AdminPolicy, policy =>
                 policy.RequireRole(Roles.Administrator))
             .AddPolicy(Policies.PatientPolicy, policy =>
-                policy.RequireRole(Roles.Patient));
+                policy.RequireRole(Roles.Patient))
+            .AddPolicy(Policies.CatalogReadPolicy, policy =>
+                policy.RequireRole(Roles.Administrator, Roles.Patient));
         return services;
     }
 

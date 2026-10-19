@@ -1,4 +1,4 @@
-﻿using Dsw2026Tpi.Application.Interfaces;
+using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.CrossCutting.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Dsw2026Tpi.CrossCutting.Exceptions;
@@ -9,7 +9,6 @@ using Dsw2026Tpi.Application.Dtos;
 namespace Dsw2026Tpi.Api.Controllers;
 
 [Route("api/doctors")]
-[Authorize(Policy = Policies.AdminPolicy)]
 public class DoctorController : AppController
 {
     private readonly IDoctorService _service;
@@ -22,17 +21,20 @@ public class DoctorController : AppController
     }
 
     [HttpGet]
+    [Authorize(Policy = Policies.CatalogReadPolicy)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageSize = PaginationOptions.DefaultPageSize,
         [FromQuery] int pageIndex = PaginationOptions.DefaultPageIndex,
-        [FromQuery] string? name = null)
+        [FromQuery] string? name = null,
+        [FromQuery] Guid? specialtyId = null)
     {
-        var doctors = await _service.GetAll(pageSize, pageIndex, name);
+        var doctors = await _service.GetAll(pageSize, pageIndex, name, specialtyId);
         return Ok(doctors);
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.AdminPolicy)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     public async Task<IActionResult> Create([FromBody] DoctorModel.Request request)
     {
@@ -41,6 +43,7 @@ public class DoctorController : AppController
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = Policies.AdminPolicy)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(Guid id, [FromBody] DoctorModel.Request request)
@@ -53,6 +56,7 @@ public class DoctorController : AppController
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = Policies.AdminPolicy)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id)
@@ -65,6 +69,7 @@ public class DoctorController : AppController
     }
 
     [HttpGet("{id:guid}/availabilities")]
+    [Authorize(Policy = Policies.AdminPolicy)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAvailabilities(Guid id)
@@ -72,5 +77,4 @@ public class DoctorController : AppController
         var availabilities = await _availabilityService.GetByDoctor(id);
         return Ok(availabilities);
     }
-
 }
