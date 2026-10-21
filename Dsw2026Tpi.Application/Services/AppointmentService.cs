@@ -12,11 +12,16 @@ namespace Dsw2026Tpi.Application.Services;
 public class AppointmentService : IAppointmentService
 {
     private readonly IPersistence _persistence;
+    private readonly IBookingEligibilityService _eligibility;
     private readonly ILogger<AppointmentService> _logger;
 
-    public AppointmentService(IPersistence persistence, ILogger<AppointmentService> logger)
+    public AppointmentService(
+        IPersistence persistence,
+        IBookingEligibilityService eligibility,
+        ILogger<AppointmentService> logger)
     {
         _persistence = persistence;
+        _eligibility = eligibility;
         _logger = logger;
     }
 
@@ -113,7 +118,7 @@ public class AppointmentService : IAppointmentService
             request.DoctorId,
             nameof(Doctor.Speciality));
 
-        if (doctor == null || doctor.Deleted)
+        if (doctor == null)
             throw new EntityNotFoundException(nameof(Doctor));
 
         var patient = await _persistence.First<Patient>(
@@ -129,22 +134,10 @@ public class AppointmentService : IAppointmentService
             request.AvailabilitySlotId,
             "Doctor.Speciality");
 
-        if (turn == null || turn.Deleted)
+        if (turn == null)
             throw new EntityNotFoundException(nameof(Turn));
 
-        if (turn.DoctorId != doctor.Id)
-            throw new ValidationException()
-                .WithDetail("availabilitySlotId", "does_not_belong_to_doctor");
-
-        if (turn.StartDateTime <= DateTime.Now)
-            throw new ValidationException()
-                .WithDetail("availabilitySlotId", "slot_in_the_past");
-
-        if (!turn.IsAvailable)
-            throw new ConflictException(
-                "Slot already booked",
-                "APPOINTMENT_CONFLICT")
-                .WithDetail("availabilitySlotId", "slot_unavailable");
+        await _eligibility.EnsureCanBook(doctor, turn);
 
         turn.Book();
 

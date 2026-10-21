@@ -55,7 +55,7 @@ public class DoctorService : IDoctorService
             throw new ValidationException().WithDetail("specialtyId", "invalid");
     }
 
-    public async Task<Pagination<DoctorModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null, Guid? specialtyId = null)
+    public async Task<Pagination<DoctorModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null, Guid? specialtyId = null, bool onlyBookable = false)
     {
 
         ValidatePagination(pageSize, pageIndex, name, specialtyId);
@@ -63,7 +63,8 @@ public class DoctorService : IDoctorService
         var doctors = await _persistence.Paginate<Doctor, string>(
             pageSize, pageIndex,
             d => !d.Deleted &&
-                 d.Speciality != null && !d.Speciality.Deleted &&
+                 d.Speciality != null &&
+                 (!onlyBookable || !d.Speciality.Deleted) &&
                  (!specialtyId.HasValue || d.SpecialityId == specialtyId.Value) &&
                  (string.IsNullOrWhiteSpace(name) || d.Name.Contains(name)),
             d => d.Name,

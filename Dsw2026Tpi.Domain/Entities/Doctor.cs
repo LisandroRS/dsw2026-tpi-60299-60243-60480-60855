@@ -38,4 +38,11 @@ public class Doctor: EntityBase
     {
         Deleted = true;
     }
+
+    public bool AcceptsAppointments()
+    {
+        return !Deleted
+            && Speciality != null
+            && !Speciality.Deleted;
+    }
 }

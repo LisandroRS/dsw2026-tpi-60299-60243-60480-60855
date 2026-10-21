@@ -29,7 +29,8 @@ public class DoctorController : AppController
         [FromQuery] string? name = null,
         [FromQuery] Guid? specialtyId = null)
     {
-        var doctors = await _service.GetAll(pageSize, pageIndex, name, specialtyId);
+        var onlyBookable = User.IsInRole(Roles.Patient);
+        var doctors = await _service.GetAll(pageSize, pageIndex, name, specialtyId, onlyBookable);
         return Ok(doctors);
     }
 

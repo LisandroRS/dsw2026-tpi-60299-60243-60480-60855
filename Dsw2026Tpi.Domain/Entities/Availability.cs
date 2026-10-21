@@ -50,4 +50,15 @@ public class Availability : EntityBase
     {
         Deleted = true;
     }
+
+    public bool Covers(Turn turn)
+    {
+        return !Deleted
+            && DoctorId == turn.DoctorId
+            && Year == turn.Date.Year
+            && Month == turn.Date.Month
+            && DayOfWeek == turn.Date.DayOfWeek
+            && StartTime <= turn.StartTime
+            && EndTime >= turn.EndTime;
+    }
 }
